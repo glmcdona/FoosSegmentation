@@ -12,18 +12,18 @@ Notes on the requirements for video chunks for training the model:
 * Doubles or singles matches is OK.
 
 The naming convention for the video files defines how the ML model learns from the video chunk and it is important to name them correctly. Before uploading any, try and double-check each filename by quickly checking the video contents. The naming convention is:
-* chunk_<game status>_<rod code>_<score from close side of table>_<score from far side of table>_<games from close side>_<games from far side>_<custom note>.avi
+* chunk_&lt;game status&gt;_&lt;rod code&gt;_&lt;score from close side of table&gt;_&lt;score from far side of table&gt;_&lt;games from close side&gt;_&lt;games from far side&gt;_&lt;custom note&gt;.avi
 
 And each of these are defined as:
 Name | Description
 --- | ---
-<game status> | <ul><li>1 for game in play</li><li>1 for not in play (timeout, or warmup between/before/after games)</li></ul>
-<rod code> | <ul><li>-2 for ball out of play for whole chunk</li><li>-1 for ball bouncing around between rods for whole chunk (no rod has control of the ball for any part of the chunk)</li><li>g1 for the closest goalie rod</li><li>g2 for the furthest goalie rod</li><li>d1 for closest defense rod</li><li>d2 for furthest defense rod</li><li>o1 for closest offense rod</li><li>o2 for furthest offense rod</li><li>f1 for closest five-bar rod</li><li>f2 for furthest five-bar rod</li></ul>
-<score from close side of table> | Score from table scoreboard on close side of table (right player's current marked score).
-<score from far side of table> | Score from table scoreboard on far side of table (left player's current marked score).
-<games from close side> | Matches won from table scoreboard on close side of table (right player's current marked number of games won).
-<games from far side> | Matches won from table scoreboard on far side of table (left player's current marked number of games won).
-<custom note> | Anything. You can write the match name and chunk number here if you want.
+&lt;game status&gt; | <ul><li>1 for game in play</li><li>1 for not in play (timeout, or warmup between/before/after games)</li></ul>
+&lt;rod code&gt; | <ul><li>-2 for ball out of play for whole chunk</li><li>-1 for ball bouncing around between rods for whole chunk (no rod has control of the ball for any part of the chunk)</li><li>g1 for the closest goalie rod</li><li>g2 for the furthest goalie rod</li><li>d1 for closest defense rod</li><li>d2 for furthest defense rod</li><li>o1 for closest offense rod</li><li>o2 for furthest offense rod</li><li>f1 for closest five-bar rod</li><li>f2 for furthest five-bar rod</li></ul>
+&lt;score from close side of table&gt; | Score from table scoreboard on close side of table (right player's current marked score).
+&lt;score from far side of table&gt; | Score from table scoreboard on far side of table (left player's current marked score).
+&lt;games from close side&gt; | Matches won from table scoreboard on close side of table (right player's current marked number of games won).
+&lt;games from far side&gt; | Matches won from table scoreboard on far side of table (left player's current marked number of games won).
+&lt;custom note&gt; | Anything. You can write the match name and chunk number here if you want.
 
 For example:
 * chunk_1_d2_3_4_0_1_SpredemanVsMooreChunk1.avi
