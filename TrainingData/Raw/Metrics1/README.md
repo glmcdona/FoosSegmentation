@@ -5,6 +5,8 @@ Feel free to contribute your own training data! The more variety in viewing angl
 * What the score in the set of games is
 * Whether the gameplay is active on the table (eg, timeout or pre/post match warmup)
 
+By building a model that can extract this information from videos, we can automatically compute player metrics such as 5-to-3 pass success rate, score rate from offense, score rate from defense, success rates on 2-to-X's, block rates, etc.
+
 Notes on the requirements for video chunks for training the model:
 * Both player scores must be visible in the video frame.
 * The whole table is in the video frame. It is OK to have some of the table obscured by a table light or gaps in visibily when the ball is close to the edge of the table.
