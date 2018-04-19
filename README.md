@@ -15,4 +15,4 @@ By building a model that can extract this information from videos, we can automa
 * Block rates
 * etc.
 
-The eventual goal is to provide a website for the foosball community so you can view player stats for both pro and amateur players.
+The eventual goal is to provide a website for the foosball community so you can view player stats for both pro and amateur players. The website would also allow you to submit your own foosball match recordings to have your stats computed.
