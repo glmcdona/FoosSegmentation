@@ -7,6 +7,8 @@ Feel free to contribute your own training data! The more variety in viewing angl
 
 By building a model that can extract this information from videos, we can automatically compute player metrics such as 5-to-3 pass success rate, score rate from offense, score rate from defense, success rates on 2-to-X's, block rates, etc.
 
+## Video Chunk Requirements
+
 Notes on the requirements for video chunks for training the model:
 * Both player scores must be visible in the video frame.
 * The whole table is in the video frame. It is OK to have some of the table obscured by a table light or gaps in visibily when the ball is close to the edge of the table.
@@ -14,11 +16,10 @@ Notes on the requirements for video chunks for training the model:
 * Chunks should be 15 seconds or less each.
 * Doubles or singles matches is OK.
 
-
+## Video Chunk Naming Convention
 
 The naming convention for the video files defines how the ML model learns from the video chunk and it is important to name them correctly. Before uploading any, try and double-check each filename by quickly checking the video contents. The naming convention is:
 * chunk\_&lt;game status&gt;\_&lt;rod code&gt;\_&lt;score from close side of table&gt;\_&lt;score from far side of table&gt;\_&lt;games from close side&gt;\_&lt;games from far side&gt;\_&lt;custom note&gt;.avi
-
 
 
 Name | Description
@@ -32,7 +33,7 @@ Name | Description
 &lt;custom note&gt; | Anything. You can write the match name and chunk number here if you want.
 
 For example:
-* chunk_1_d2_3_4_0_1_SpredemanVsMooreChunk1.avi
+* chunk_1_d2_3_4_0_1_SpredemanVsMooreChunk1.mp4
 
 Would mark the video chunk as training for:
 * 1: Game is active
@@ -42,4 +43,18 @@ Would mark the video chunk as training for:
 * 0: Close player has 0 game wins marked on scoreboard in current set
 * 1: Far player has 1 game wins marked on scoreboard in current set
 * SpredemanVsMooreChunk1: Your note for this chunk
+
+## Recommended Tool
+Shotcut works great:
+* https://www.shotcut.org/download/
+
+Steps I use:
+1. Open the video with Shotcut
+2. Jump to point in video where a player gets control of the ball on a rod
+3. Press 'i' to begin the inset
+4. Hold the right arrow (and rewind with left arrow) until the rod is still in control of that same rod
+5. Press 'o' to mark this as the video outset
+6. Hit File -> Export Video to bring up the export view (and keep this up for more chunks that you will create)
+7. Export as '.mp4' at original resolution to a '.mp4' file following the video chunk naming convention
+
 
