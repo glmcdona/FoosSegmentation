@@ -7,6 +7,7 @@ Feel free to contribute your own training data! The more variety in viewing angl
 
 Notes on the requirements for video chunks for training the model:
 * Both player scores must be visible in the video frame.
+* The whole table is in the video frame. It is OK to have some of the table obscured by a table light or gaps in visibily when the ball is close to the edge of the table.
 * A video chunk requires that the same rod has control of the ball for the whole video chunk, but can be passing the ball around on that rod or can be in a timeout for example.
 * Chunks should be 15 seconds or less each.
 * Doubles or singles matches is OK.
