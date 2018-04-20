@@ -24,7 +24,7 @@ Notes on the requirements for video chunks for training the model:
 ### Ball Tracking: Video Chunk Naming Convention
 
 The naming convention for the video files defines how the ML model learns from the video chunk and it is important to name them correctly. Before uploading any, try and double-check each filename by quickly checking the video contents. The naming convention is:
-* <custom note>\_&lt;rod code&gt;.mp4
+* &lt;custom note&gt;\_&lt;rod code&gt;.mp4
 
 Name | Description
 ----|-----
@@ -61,7 +61,7 @@ Notes on the requirements for video chunks for training the model:
 ### Score Tracking: Video Chunk Naming Convention
 
 The naming convention for the video files defines how the ML model learns from the video chunk and it is important to name them correctly. Before uploading any, try and double-check each filename by quickly checking the video contents. The naming convention is:
-* <custom note>\_&lt;score from close side of table&gt;\_&lt;score from far side of table&gt;\_&lt;games won from close side of table&gt;\_&lt;games won from far side of table&gt;.mp4
+* &lt;custom note&gt;\_&lt;score from close side of table&gt;\_&lt;score from far side of table&gt;\_&lt;games won from close side of table&gt;\_&lt;games won from far side of table&gt;.mp4
 
 Name | Description
 ----|-----
