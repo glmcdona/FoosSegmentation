@@ -1,0 +1,55 @@
+{
+    "loader":
+    {
+        "random":
+        {
+            "endswith":"",
+            "folder":".\\..\\..\\Raw\\BallTracking\\",
+            "value_loader":
+            {
+                "delimited_filename":
+                {
+                    "delimiter":"_",
+                    "token_load":
+                    {
+                        "note": 0,
+                        "values": [1]
+                    }
+                }
+            }
+        }
+    },
+
+    "transforms":
+    [
+        {
+            "name":"one-hot",
+            "input":"values",
+            "output":"values"
+        },
+        {
+            "name":"resize",
+            "input":"frame",
+            "output":"frame",
+            "size":[240,135],
+            "resize_mode":"stretch"  
+        },
+        {
+            "name":"normalize",
+            "input":"frame",
+            "output":"frame",
+            "max":1.0,
+            "min":0.0
+        }
+    ],
+
+    "writer":
+    {
+        "random_chunk_writer":
+        {
+            "folder":".\\Result\\",
+            "name":"balltracking",
+            "number_of_chunks":2
+        }
+    }
+}
