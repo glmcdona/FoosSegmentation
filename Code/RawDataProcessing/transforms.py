@@ -1,11 +1,11 @@
 import cv2
+import pprint
+import numpy as np
+pp = pprint.PrettyPrinter(depth=6)
 
 class Transform():
     def __init__(self):
         pass
-    
-    def requires_prerun(self):
-        return False 
 
     def prerun(self, data):
         pass
@@ -18,10 +18,7 @@ class OneHot(Transform):
     def __init__(self, config):
         self.input = config["input"]
         self.output = config["output"]
-        self.dictionary = []
-
-    def requires_prerun(self):
-        return True
+        self.dictionary = config["dictionary"]
 
     def prerun(self, data):
         # Gets run with all the data prior to real run. Used to build term dictionary
@@ -33,12 +30,14 @@ class OneHot(Transform):
         # TODO, 2d ARRAY SUPPORT: If input is a 2d array, we treat each input as one-hot separately with it's own dictionary
 
         # Build the one-hot array
-        result = []
-        for value in data[self.input]:
-            result.append( self.dictionary.index(value) )
+        result = np.zeros((len(self.dictionary), len(data[self.input])))
+        for i in range(len(data[self.input])):
+            result[self.dictionary.index(data[self.input][i]),i] = 1
 
         # Write the result
         data[self.output] = result
+
+        return data
 
 
 class Resize(Transform):
@@ -55,6 +54,8 @@ class Resize(Transform):
         # Write the result
         data[self.output] = result
 
+        return data
+
 
 class NormalizePerChannel(Transform):
     def __init__(self, config):
@@ -64,4 +65,18 @@ class NormalizePerChannel(Transform):
         self.max = config["max"]
 
     def process(self, data):
-        pass
+        #pp.pprint(data)
+        #pp.pprint(data["frame"].shape)
+        #norm_image = np.array(data["frame"], dtype=np.float32)
+        #pp.pprint(norm_image.shape)
+        #norm_image = np.ascontiguousarray(norm_image)
+        #pp.pprint(norm_image.shape)
+        new_frame = data["frame"].astype(np.float32)
+        for channel in range(data["frame"].shape[2]):
+            min = np.min(new_frame[:,:,channel])
+            max = np.max(new_frame[:,:,channel])
+            
+            new_frame[:,:,channel] = ( (new_frame[:,:,channel] - min) / (max - min) ) * (self.max - self.min) + self.min
+
+        data["frame"] = new_frame
+        return data

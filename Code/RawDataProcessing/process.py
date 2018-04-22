@@ -14,7 +14,7 @@ import json
 # Settings
 #data_path  = ".\\..\\Recorder\\FeatureSetBuilder\\Experiments\\experiment4.config"
 
-class Procesor():
+class Processor():
     def __init__(self, config):
         # Load the config
         with open(config) as json_data:
@@ -48,18 +48,38 @@ class Procesor():
 
         # Load the writer
         assert "writer" in config, "No writer found."
-        if "random_chunk_writer" in config["writer"]:
-            self.writer = writers.random_chunk_writer(config["writer"]["random_chunk_writer"])
+        if "basic_writer" in config["writer"]:
+            print("Creating basic writer")
+            self.writer = writers.BasicWriter(config["writer"]["basic_writer"])
 
         assert self.loader is not None, "No loader created."
         assert self.writer is not None, "No writer created."
 
+    def process(self):
+        # Loop through the pipeline until the loader is done
+        data = self.loader.get_next_frame()
+        count = 0
+        while data is not None:
+            if count % 100 == 0:
+                print("Frame %i of %i" % (count, self.loader.length()))
+
+            # Process the transforms
+            for transform in self.transforms:
+                data = transform.process(data)
+
+            # Save the result
+            self.writer.add(data)    
+            data = self.loader.get_next_frame()
+            count += 1
+
+        # Finalize
+        self.writer.finalize()
 
 
 if( sys.argv[1] == "process" ):
 	print("Processing experiment config frames from path %s." % (sys.argv[2]))
 	exp = Processor(sys.argv[2])
-	#exp.process()
+	exp.process()
 else:
 	print("ERROR: Invalid command %s. Must be play or process." % sys.argv[1])
 

@@ -3,7 +3,7 @@
     {
         "random":
         {
-            "endswith":"1_o2.mp4",
+            "endswith":"",
             "folder":".\\..\\..\\Raw\\BallTracking\\",
             "value_loader":
             {
@@ -40,6 +40,13 @@
             "output":"frame",
             "size":[240,135],
             "resize_mode":"stretch"  
+        },
+        {
+            "name":"normalize_channels",
+            "input":"frame",
+            "output":"frame",
+            "max":1.0,
+            "min":0.0
         }
     ],
 
