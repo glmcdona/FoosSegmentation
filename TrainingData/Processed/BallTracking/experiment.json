@@ -35,7 +35,7 @@
             "resize_mode":"stretch"  
         },
         {
-            "name":"normalize",
+            "name":"normalize_channels",
             "input":"frame",
             "output":"frame",
             "max":1.0,

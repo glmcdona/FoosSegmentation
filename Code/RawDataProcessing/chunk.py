@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import types
 
-class chunk():
+class Chunk():
     def __init__(self, video_root, video_filename, value_loader_config):
         self.file = os.path.join(video_root, video_filename)
 
@@ -46,7 +46,7 @@ class chunk():
 
         return data
 
-class value_loader_delimited_filename():
+class ValueLoader_DelimitedFilename():
     def __init__(self, filename, value_loader_config):
         # Parse the filename according to the config as the value
         tokens = filename.split(".")[0].split( value_loader_config["delimiter"] )

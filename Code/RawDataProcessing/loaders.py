@@ -2,7 +2,7 @@ import os
 import random
 from chunk import *
 
-class random_loader():
+class LoaderRandom():
     def __init__(self, config):
         # Special frame loader that loads a randomly sample frame from any position in any video
         # until there are no frames left.
