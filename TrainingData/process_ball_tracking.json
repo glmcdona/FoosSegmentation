@@ -1,0 +1,51 @@
+{
+    "transforms":
+    [
+        {
+            "name":"random_video_loader",
+            "endswith":"",
+            "folder":".\\Raw\\BallTracking\\",
+            "value_loader":
+            {
+                "delimited_filename":
+                {
+                    "delimiter":"_",
+                    "token_load":
+                    {
+                        "note": 0,
+                        "values": [1]
+                    }
+                }
+            },
+            "repeats":
+            [{
+                "match_type":"partial_match_filename",
+                "value_match":"ProChunk",
+                "repeat_times":5
+            }]
+        },
+        {
+            "name":"require",
+            "input":"frame"
+        },
+        {
+            "name":"one-hot",
+            "input":"values",
+            "output":"values",
+            "dictionary":["g1","d1","o1","f1","f2","o2","d2","g2","-2"]
+        },
+        {
+            "name":"resize",
+            "input":"frame",
+            "output":"frame",
+            "size":[135,240],
+            "resize_mode":"stretch"  
+        },
+        {
+            "name":"basic_writer",
+            "folder":".\\Processed\\BallTracking",
+            "filename_prefix":"balltracking",
+            "frames_per_chunk":10000
+        }
+    ]
+}

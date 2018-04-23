@@ -1,1 +1,0 @@
-python ..\..\..\Code\RawDataProcessing\process.py process experiment.json
