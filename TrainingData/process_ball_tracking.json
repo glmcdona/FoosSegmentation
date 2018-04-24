@@ -5,10 +5,12 @@
             "name":"random_video_loader",
             "endswith":"",
             "folder":".\\Raw\\BallTracking\\",
+            "output":"frame",
             "value_loader":
             {
                 "delimited_filename":
                 {
+                    "filename":"filename",
                     "delimiter":"_",
                     "token_load":
                     {
@@ -43,6 +45,8 @@
         },
         {
             "name":"basic_writer",
+            "frame_to_output":"frame",
+            "values_to_output":["values","filename"],
             "folder":".\\Processed\\BallTracking",
             "filename_prefix":"balltracking",
             "frames_per_chunk":10000

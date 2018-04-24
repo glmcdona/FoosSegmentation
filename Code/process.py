@@ -85,12 +85,12 @@ class Processor():
         return data
 
 
-
-if( sys.argv[1] == "process" ):
-	print("Processing experiment config frames from path %s." % (sys.argv[2]))
-	exp = Processor(sys.argv[2])
-	exp.process_all()
-else:
-	print("ERROR: Invalid command %s. Must be play or process." % sys.argv[1])
+if __name__ == "__main__":
+    if( sys.argv[1] == "process" ):
+        print("Processing experiment config frames from path %s." % (sys.argv[2]))
+        exp = Processor(sys.argv[2])
+        exp.process_all()
+    else:
+        print("ERROR: Invalid command %s. Must be play or process." % sys.argv[1])
 
 

@@ -3,15 +3,17 @@
     [
         {
             "name":"random_video_loader",
-            "endswith":"",
-            "folder":".\\Processed\\BallTracking\\",
+            "endswith":".avi",
+            "folder":".\\..\\TrainingData\\Processed\\BallTracking\\",
+            "output":"frame",
             "value_loader":
             {
                 "json":
                 {
                     "values_to_load":["values"]
                 }
-            }
+            },
+            "repeats":[]
         },
         {
             "name":"normalize_channels",

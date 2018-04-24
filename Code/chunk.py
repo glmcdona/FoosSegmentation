@@ -45,27 +45,29 @@ class Chunk():
                 self.height = np.shape(first_frame)[0]
     
     def get_frame(self, index):
-        data = {}
+        frame = None
+        values = {}
 
         # Load the camera frame
         if self.reader.isOpened():
             self.reader.set(1, (index % self.num_frames))
-            ret, frame = self.reader.read()
-            if ret == True and frame is not None:
-                data["frame"] = frame
+            ret, new_frame = self.reader.read()
+            if ret == True and new_frame is not None:
+                frame = new_frame
 
         # Load and merge the associated values
         values = self.value_loader.get_values(index)
-        for name, value in values.items():
-            data[name] = value
 
-        return data
+        return frame, values
 
 class ValueLoader_DelimitedFilename():
     def __init__(self, filename, value_loader_config):
         # Parse the filename according to the config as the value
         tokens = filename.split(".")[0].split( value_loader_config["delimiter"] )
         self.values = {}
+        if "filename" in value_loader_config:
+            self.values[value_loader_config["filename"]] = filename
+        
         for name, indices in value_loader_config["token_load"].items():
             if type(indices) is not list:
                 indices = [indices]
@@ -90,4 +92,7 @@ class ValueLoader_Json():
 
     def get_values(self, index):
         # Constant set of values depending on filename
-        return self.data[index]
+        values = {}
+        for name, array in self.data.items():
+            values[name] = array[index]
+        return values

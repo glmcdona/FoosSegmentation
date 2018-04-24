@@ -30,6 +30,8 @@ class VideoLoaderRandom(Transform):
         # Special frame loader that loads a randomly sample frame from any position in any video
         # until there are no frames left.
 
+        self.output = config["output"]
+
         # Create the chunks
         self.chunks = []
         print("Adding folder '%s'" % config["folder"])
@@ -73,7 +75,16 @@ class VideoLoaderRandom(Transform):
         
         chunk_index, index = self.load_sequence[self.frame_index]
         self.frame_index += 1
-        return self.chunks[chunk_index].get_frame(index)
+
+        # Get the frame and vlues
+        frame, values = self.chunks[chunk_index].get_frame(index)
+        data[self.output] = frame
+
+        # Merge the values
+        for name, value in values.items():
+            data[name] = value
+        
+        return data
     
     def finalize(self):
         self.frame_index = 0
@@ -84,6 +95,8 @@ class BasicWriter(Transform):
         self.folder = config["folder"]
         self.filename_prefix = config["filename_prefix"]
         self.frames_per_chunk = config["frames_per_chunk"]
+        self.frame_to_output = config["frame_to_output"]
+        self.values_to_output = config["values_to_output"]
         self.frames_written = 0
         self.current_chunk = 0
 
@@ -105,7 +118,7 @@ class BasicWriter(Transform):
             self.current_chunk = chunk_number
 
             # Load the frame size
-            shape = data["frame"].shape
+            shape = data[self.frame_to_output].shape
 
             # Create the writer
             fourcc = cv2.VideoWriter_fourcc(*'XVID') #cv2.VideoWriter_fourcc(*'DIVX')
@@ -113,11 +126,11 @@ class BasicWriter(Transform):
             
 
         # Write the camera frame
-        self.video_writer.write(data["frame"])
+        self.video_writer.write(data[self.frame_to_output])
 
         # Add the output data
         for key, value in data.items():
-            if key is not "frame":
+            if key in self.values_to_output:
                 if key not in self.json_output_data:
                     self.json_output_data[key] = []
                 if type(value) is np.ndarray:
@@ -151,6 +164,9 @@ class Require(Transform):
 
     def process(self, data):
         if self.input not in data:
+            return None
+
+        if data[self.input] is None:
             return None
 
         return data
@@ -212,12 +228,12 @@ class NormalizePerChannel(Transform):
         #pp.pprint(norm_image.shape)
         #norm_image = np.ascontiguousarray(norm_image)
         #pp.pprint(norm_image.shape)
-        new_frame = data["frame"].astype(np.float32)
-        for channel in range(data["frame"].shape[2]):
+        new_frame = data[self.input].astype(np.float32)
+        for channel in range(data[self.input].shape[2]):
             min = np.min(new_frame[:,:,channel])
             max = np.max(new_frame[:,:,channel])
             
             new_frame[:,:,channel] = ( (new_frame[:,:,channel] - min) / (max - min) ) * (self.max - self.min) + self.min
 
-        data["frame"] = new_frame
+        data[self.output] = new_frame
         return data
