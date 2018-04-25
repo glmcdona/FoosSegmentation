@@ -6,6 +6,7 @@
             "endswith":".avi",
             "folder":".\\..\\TrainingData\\Processed\\BallTracking\\",
             "output":"frame",
+            "take_first_x_percent":80,
             "value_loader":
             {
                 "json":

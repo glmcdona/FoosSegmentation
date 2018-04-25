@@ -4,6 +4,7 @@ import numpy as np
 pp = pprint.PrettyPrinter(depth=6)
 import os
 import random
+import math
 from chunk import *
 
 class Transform():
@@ -55,6 +56,12 @@ class VideoLoaderRandom(Transform):
             for j in range(0, self.chunks[i].length):
                 self.load_sequence.append([i, j])
         
+        if "take_first_x_percent" in config:
+            self.load_sequence = self.load_sequence[0:math.floor(len(self.load_sequence) * (config["take_first_x_percent"] / 100.0))]
+        
+        if "take_last_x_percent" in config:
+            self.load_sequence = self.load_sequence[math.ceil(len(self.load_sequence) * (1.0 - config["take_last_x_percent"] / 100.0)):-1]
+
         # Shuffle the frame order
         random.shuffle(self.load_sequence)
         self.frame_index = 0
