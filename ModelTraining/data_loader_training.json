@@ -17,6 +17,24 @@
             "repeats":[]
         },
         {
+            "name":"randomize_frame",
+            "input":"frame",
+            "output":"frame",
+            "chance_no_change":0.3,
+            "zoom_range":[0.8, 1.2],
+            "rotation_range":5,
+            "width_shift_range":0.15,
+            "height_shift_range":0.05,
+            "shear_range":0.05,
+            "fill_mode":"nearest",
+            "gaussian_noise":0.07,
+            "white_noise":0.03,
+            "swap_channels":true,
+            "invert_channels":false,
+            "vertical_flip":false,
+            "horizontal_flip":true
+        },
+        {
             "name":"normalize_channels",
             "input":"frame",
             "output":"frame",

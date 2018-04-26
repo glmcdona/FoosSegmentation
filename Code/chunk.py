@@ -4,12 +4,14 @@ import numpy as np
 import types
 import json
 import codecs
+import threading
 
 class Chunk():
     def __init__(self, video_root, video_filename, value_loader_config, repeats):
         self.file = os.path.join(video_root, video_filename)
         self.repeats = repeats
         self.video_filename = video_filename
+        self.lock = threading.Lock()
 
         # Add the value loader
         self.value_loader = None
@@ -49,11 +51,12 @@ class Chunk():
         values = {}
 
         # Load the camera frame
-        if self.reader.isOpened():
-            self.reader.set(1, (index % self.num_frames))
-            ret, new_frame = self.reader.read()
-            if ret == True and new_frame is not None:
-                frame = new_frame
+        with self.lock:
+            if self.reader.isOpened():
+                self.reader.set(1, (index % self.num_frames))
+                ret, new_frame = self.reader.read()
+                if ret == True and new_frame is not None:
+                    frame = new_frame
 
         # Load and merge the associated values
         values = self.value_loader.get_values(index)

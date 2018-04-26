@@ -6,6 +6,7 @@ import os
 import random
 import math
 from chunk import *
+from keras.preprocessing.image import *
 
 class Transform():
     def __init__(self):
@@ -243,4 +244,195 @@ class NormalizePerChannel(Transform):
             new_frame[:,:,channel] = ( (new_frame[:,:,channel] - min) / (max - min) ) * (self.max - self.min) + self.min
 
         data[self.output] = new_frame
+        return data
+
+class RandomizeFrame(Transform):
+    def __init__(self, config):
+        self.input = config["input"]
+        self.output = config["output"]
+
+        self.chance_no_change = 0.0
+        if "chance_no_change" in config:
+            self.chance_no_change = config["chance_no_change"]
+
+        self.zoom_range = None
+        if "zoom_range" in config:
+            self.zoom_range = config["zoom_range"]
+        
+        self.rotation_range = None
+        if "rotation_range" in config:
+            self.rotation_range = config["rotation_range"]
+        
+        self.width_shift_range = None
+        if "width_shift_range" in config:
+            self.width_shift_range = config["width_shift_range"]
+        
+        self.height_shift_range = None
+        if "height_shift_range" in config:
+            self.height_shift_range = config["height_shift_range"]
+        
+        self.shear_range = None
+        if "shear_range" in config:
+            self.shear_range = config["shear_range"]
+        
+        self.fill_mode = "nearest"
+        if "fill_mode" in config:
+            self.fill_mode = config["fill_mode"]
+        
+        self.gaussian_noise = 0.0
+        if "gaussian_noise" in config:
+            self.gaussian_noise = config["gaussian_noise"]
+        
+        self.white_noise = "white_noise"
+        if "white_noise" in config:
+            self.white_noise = config["white_noise"]
+
+        self.swap_channels = False
+        if "swap_channels" in config:
+            self.swap_channels = config["swap_channels"]
+
+        self.invert_channels = False
+        if "invert_channels" in config:
+            self.invert_channels = config["invert_channels"]
+        
+        self.vertical_flip = False
+        if "vertical_flip" in config:
+            self.vertical_flip = config["vertical_flip"]
+        
+        self.horizontal_flip = None
+        if "horizontal_flip" in config:
+            self.horizontal_flip = config["horizontal_flip"]
+        
+        self.row_axis = 0
+        if "row_axis" in config:
+            self.row_axis = config["row_axis"]
+        self.col_axis = 1
+        if "col_axis" in config:
+            self.col_axis = config["col_axis"]
+        self.channel_axis = 2
+        if "channel_axis" in config:
+            self.channel_axis = config["channel_axis"]
+
+        self.seed_random = 1
+        if "seed" in config:
+            self.seed_random = config["seed"]
+
+        # Set the current random seed
+        self.prng = np.random.RandomState(self.seed_random)
+
+    def process(self, data):
+        # Applies the configured random transformations to the input camera frame
+
+        # Based on Keras ImageDataGenerator, but with improvements
+        #     https://github.com/fchollet/keras/blob/master/keras/preprocessing/image.py
+
+        x = data[self.input]
+
+        if self.chance_no_change < self.prng.uniform():
+            # use composition of homographies
+            # to generate final transform that needs to be applied
+            if self.rotation_range:
+                theta = np.pi / 180 * self.prng.uniform(-self.rotation_range, self.rotation_range)
+            else:
+                theta = 0
+
+            if self.height_shift_range:
+                tx = self.prng.uniform(-self.height_shift_range, self.height_shift_range) * x.shape[self.row_axis]
+            else:
+                tx = 0
+
+            if self.width_shift_range:
+                ty = self.prng.uniform(-self.width_shift_range, self.width_shift_range) * x.shape[self.col_axis]
+            else:
+                ty = 0
+
+            if self.shear_range:
+                shear = self.prng.uniform(-self.shear_range, self.shear_range)
+            else:
+                shear = 0
+
+            if self.zoom_range[0] == 1 and self.zoom_range[1] == 1:
+                zx, zy = 1, 1
+            else:
+                zx, zy = self.prng.uniform(self.zoom_range[0], self.zoom_range[1], 2)
+
+            transform_matrix = None
+            if theta != 0:
+                rotation_matrix = np.array([[np.cos(theta), -np.sin(theta), 0],
+                                            [np.sin(theta), np.cos(theta), 0],
+                                            [0, 0, 1]])
+                transform_matrix = rotation_matrix
+
+            if tx != 0 or ty != 0:
+                shift_matrix = np.array([[1, 0, tx],
+                                        [0, 1, ty],
+                                        [0, 0, 1]])
+                transform_matrix = shift_matrix if transform_matrix is None else np.dot(transform_matrix, shift_matrix)
+
+            if shear != 0:
+                shear_matrix = np.array([[1, -np.sin(shear), 0],
+                                        [0, np.cos(shear), 0],
+                                        [0, 0, 1]])
+                transform_matrix = shear_matrix if transform_matrix is None else np.dot(transform_matrix, shear_matrix)
+
+            if zx != 1 or zy != 1:
+                zoom_matrix = np.array([[zx, 0, 0],
+                                        [0, zy, 0],
+                                        [0, 0, 1]])
+                transform_matrix = zoom_matrix if transform_matrix is None else np.dot(transform_matrix, zoom_matrix)
+
+            if transform_matrix is not None:
+                h, w = x.shape[self.row_axis], x.shape[self.col_axis]
+                transform_matrix = transform_matrix_offset_center(transform_matrix, h, w)
+                
+                x = apply_transform(x, transform_matrix, self.channel_axis,
+                                    fill_mode=self.fill_mode, cval=0.0)
+
+            if self.horizontal_flip:
+                if self.prng.uniform() < 0.5:
+                    x = flip_axis(x, self.col_axis)
+
+            if self.vertical_flip:
+                if self.prng.uniform() < 0.5:
+                    x = flip_axis(x, self.row_axis)
+            
+            if self.swap_channels:
+                # Randomly swap the channels
+                # TODO: Make it generic using the column number members
+                if self.prng.uniform() > 0.5:
+                    order = list(range(3))
+                    random.shuffle(order)
+                    result = np.zeros_like(x)
+                    for i in range(3):
+                        result[:,:,i] = x[:,:,order[i]]
+                    x = result
+
+            if self.invert_channels:
+                # Invert between 0 and 3 channels. 50% chance of no inverting
+                if self.prng.uniform() > 0.5:
+                    # Invert some channels
+                    num_channels = self.prng.randint(1,3)
+                    channels = list(range(3))
+                    for i in range(num_channels):
+                        random.shuffle(channels)
+                        channel = channels.pop()
+                        x[:,:,channel] = -x[:,:,channel] # A normalizer is assumed to restore it to the correct value range
+
+
+            # Apply the noise
+            max_color = np.max(x)
+            min_color = np.min(x)
+            value_range = max_color - min_color
+
+            level = self.prng.uniform(0, self.white_noise * value_range)
+            white_noise = self.prng.uniform(-level, level, x.shape)
+
+            std_dev = self.prng.uniform(0, self.gaussian_noise * value_range)
+            gaussian_noise = self.prng.normal(0, std_dev, x.shape)
+
+            x = (x + white_noise + gaussian_noise)
+
+        # Set the output
+        data[self.output] = x
+
         return data
