@@ -4,7 +4,7 @@
         {
             "name":"random_video_loader",
             "endswith":".avi",
-            "folder":".\\..\\TrainingData\\Processed\\BallTracking\\",
+            "folder":".\\..\\..\\Data\\Processed\\BallTracking\\",
             "output":"frame",
             "take_last_x_percent":20,
             "value_loader":

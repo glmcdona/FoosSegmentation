@@ -313,6 +313,13 @@ class RandomizeFrame(Transform):
         if "channel_axis" in config:
             self.channel_axis = config["channel_axis"]
 
+        self.saturation_chance = 0.0
+        if "saturation_chance" in config:
+            self.saturation_chance = config["saturation_chance"]
+        self.saturation_max_amount = 0.3
+        if "saturation_max_amount" in config:
+            self.saturation_max_amount = config["saturation_max_amount"]
+
         self.seed_random = 1
         if "seed" in config:
             self.seed_random = config["seed"]
@@ -328,7 +335,7 @@ class RandomizeFrame(Transform):
 
         x = data[self.input]
 
-        if self.chance_no_change < self.prng.uniform():
+        if not self.prng.uniform() < self.chance_no_change:
             # use composition of homographies
             # to generate final transform that needs to be applied
             if self.rotation_range:
@@ -417,8 +424,6 @@ class RandomizeFrame(Transform):
                         random.shuffle(channels)
                         channel = channels.pop()
                         x[:,:,channel] = -x[:,:,channel] # A normalizer is assumed to restore it to the correct value range
-
-
             # Apply the noise
             max_color = np.max(x)
             min_color = np.min(x)
@@ -431,6 +436,65 @@ class RandomizeFrame(Transform):
             gaussian_noise = self.prng.normal(0, std_dev, x.shape)
 
             x = (x + white_noise + gaussian_noise)
+
+            # Apply saturation
+            if self.saturation_chance > 0 and self.prng.uniform() < self.saturation_chance:
+                if self.prng.uniform() > 0.5:
+                    # Saturate all the channels together
+                    max_color = np.max(x)
+                    min_color = np.min(x)
+                    value_range = max_color - min_color
+                    rand = self.prng.uniform()
+                    if rand > 0.6:
+                        # 40% chance Saturate brightest values of this channel
+                        saturated_max = (max_color - value_range * ( self.saturation_max_amount * self.prng.uniform() ))
+                        mask = x > saturated_max
+                        x[mask] = saturated_max
+                    elif rand > 0.2:
+                        # 40% chance Saturate darkest values
+                        saturated_min = (min_color + value_range * ( self.saturation_max_amount * self.prng.uniform() ))
+                        mask = x < saturated_min
+                        x[mask] = saturated_min
+                    else:
+                        # 20% chance Saturate both the brightest and darkest
+                        saturated_max = (max_color - value_range * ( self.saturation_max_amount/2 * self.prng.uniform() ))
+                        mask = x > saturated_max
+                        x[mask] = saturated_max
+
+                        saturated_min = (min_color + value_range * ( self.saturation_max_amount/2 * self.prng.uniform() ))
+                        mask = x < saturated_min
+                        x[mask] = saturated_min
+                else:
+                    # Saturate all or some channels differently
+                    num_channels = self.prng.randint(1,3)
+                
+                    channels = list(range(3))
+                    for i in range(num_channels):
+                        random.shuffle(channels)
+                        channel = channels.pop()
+                        max_color = np.max(x[:,:,channel])
+                        min_color = np.min(x[:,:,channel])
+                        value_range = max_color - min_color
+                        rand = self.prng.uniform()
+                        if rand > 0.6:
+                            # 40% chance Saturate brightest values of this channel
+                            saturated_max = (max_color - value_range * ( self.saturation_max_amount * self.prng.uniform() ))
+                            mask = x[:,:,channel] > saturated_max
+                            x[mask,channel] = saturated_max
+                        elif rand > 0.2:
+                            # 40% chance Saturate darkest values
+                            saturated_min = (min_color + value_range * ( self.saturation_max_amount * self.prng.uniform() ))
+                            mask = x[:,:,channel] < saturated_min
+                            x[mask,channel] = saturated_min
+                        else:
+                            # 20% chance Saturate both the brightest and darkest
+                            saturated_max = (max_color - value_range * ( self.saturation_max_amount/2 * self.prng.uniform() ))
+                            mask = x[:,:,channel] > saturated_max
+                            x[mask,channel] = saturated_max
+
+                            saturated_min = (min_color + value_range * ( self.saturation_max_amount/2 * self.prng.uniform() ))
+                            mask = x[:,:,channel] < saturated_min
+                            x[mask,channel] = saturated_min
 
         # Set the output
         data[self.output] = x
