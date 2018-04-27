@@ -38,6 +38,16 @@ class Processor():
                     self.transforms.append( transforms.Require(transform) )
                 elif transform["name"] == "randomize_frame":
                     self.transforms.append( transforms.RandomizeFrame(transform) )
+                elif transform["name"] == "single_video_loader":
+                    self.transforms.append( transforms.SingleVideoLoader(transform) )
+                elif transform["name"] == "run_model":
+                    self.transforms.append( transforms.RunModel(transform) )
+                elif transform["name"] == "onehot_to_name":
+                    self.transforms.append( transforms.OneHotToName(transform) )
+                elif transform["name"] == "frame_write_text":
+                    self.transforms.append( transforms.FrameWriteText(transform) )
+                elif transform["name"] == "show_frame":
+                    self.transforms.append( transforms.ShowFrame(transform) )
                 else:
                     print("ERROR: Transform not found '%s'" % transform["name"])
         

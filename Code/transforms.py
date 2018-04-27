@@ -7,6 +7,7 @@ import random
 import math
 from chunk import *
 from keras.preprocessing.image import *
+import keras
 
 class Transform():
     def __init__(self):
@@ -160,9 +161,10 @@ class BasicWriter(Transform):
         self.video_writer.release()
         
         # Write the json data
-        with codecs.open(os.path.join(self.folder, "%s_%i.json" % (self.filename_prefix, self.current_chunk)), 'w', encoding='utf-8') as outfile:
-            json.dump(self.json_output_data, outfile, separators=(',', ':'), sort_keys=True, indent=4)
-            self.json_output_data = {}
+        if len(self.json_output_data) > 0:
+            with codecs.open(os.path.join(self.folder, "%s_%i.json" % (self.filename_prefix, self.current_chunk)), 'w', encoding='utf-8') as outfile:
+                json.dump(self.json_output_data, outfile, separators=(',', ':'), sort_keys=True, indent=4)
+                self.json_output_data = {}
         
         pass
 
@@ -499,4 +501,130 @@ class RandomizeFrame(Transform):
         # Set the output
         data[self.output] = x
 
+        return data
+
+
+class SingleVideoLoader(Transform):
+    def __init__(self, config):
+        self.output = config["output"]
+        self.video = None
+        if "webcam_number" in config:
+            self.video = cv2.VideoCapture(config["webcam_number"])
+        if "video_file" in config:
+            self.video = cv2.VideoCapture(config["video_file"])
+        
+        if "webcam_number" in config:
+            self.num_frames = 1000000000000 # infinite
+            print("Reading frames from webcam.")
+        else:
+            # Calculate the chunk length
+            self.num_frames = int(self.video.get(cv2.CAP_PROP_FRAME_COUNT))
+            print("%i frames found from video file." % (self.num_frames))
+
+    def length(self):
+        return self.num_frames
+
+    def process(self, data):
+        if(self.video.isOpened()):
+            ret, frame = self.video.read()
+            if ret == True:
+                data[self.output] = frame
+            else:
+                return None
+        else:
+            return None
+
+        # Continue
+        return data
+    
+    def stop_all_on_return_null(self):
+        return True
+
+class FrameWriteText(Transform):
+    def __init__(self, config):
+        self.input_output = config["input_output"]
+        self.line = config["line"]
+
+        self.text_constant_prefix = ""
+        if "text_constant_prefix" in config:
+            self.text_constant_prefix = config["text_constant_prefix"]
+        
+        self.text_from_value = None
+        if "text_from_value" in config:
+            self.text_from_value = config["text_from_value"]
+
+    def process(self, data):
+        # Draw text on the frame
+        text = ""
+        if self.text_from_value is not None:
+            text = self.text_constant_prefix + str(data[self.text_from_value])
+        else:
+            text = self.text_constant_prefix
+        
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        cv2.putText(data[self.input_output], text,(10,50+40*self.line), font, 1,(255,255,255),1,cv2.LINE_AA)
+        
+        # Continue
+        return data
+
+class ShowFrame(Transform):
+    def __init__(self, config):
+        self.input = config["input"]
+        self.display = config["display"]
+        cv2.namedWindow(self.display)
+
+    def process(self, data):
+        # Show the frame
+        cv2.imshow('FoosBot',data[self.input])
+
+        # Keystroke to quit or pause
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('q'):
+            data = None
+        elif key == ord(' '):
+            cv2.waitKey()
+        
+        # Continue
+        return data
+    
+    def stop_all_on_return_null(self):
+        return True
+
+    def finalize(self):
+        cv2.destroyWindow(self.display)
+
+
+class RunModel(Transform):
+    def __init__(self, config):
+        self.input = config["input"]
+        self.output = config["output"]
+        self.model = keras.models.load_model(config["model_file"])
+
+    def process(self, data):
+        # Process the frame in the ML model
+        result = self.model.predict( np.expand_dims(data[self.input], axis=0) )[0,:]
+        data[self.output] = result
+        
+        # Continue
+        return data
+
+class OneHotToName(Transform):
+    def __init__(self, config):
+        self.input = config["input"]
+        self.output = config["output"]
+        self.map = config["map"]
+
+        self.output_prob = None
+        if "output_prob" in config:
+            self.output_prob = config["output_prob"]
+
+    def process(self, data):
+        # Convert a One-Hot scoring to the winning category and probability
+        index = data[self.input].argmax()
+        data[self.output] = self.map[index]
+
+        if self.output_prob is not None:
+            data[self.output_prob] = max(data[self.input])
+
+        # Continue
         return data
