@@ -575,7 +575,7 @@ class ShowFrame(Transform):
 
     def process(self, data):
         # Show the frame
-        cv2.imshow('FoosBot',data[self.input])
+        cv2.imshow(self.display,data[self.input])
 
         # Keystroke to quit or pause
         key = cv2.waitKey(1) & 0xFF
