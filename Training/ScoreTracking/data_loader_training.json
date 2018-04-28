@@ -34,7 +34,7 @@
             "swap_channels":true,
             "invert_channels":false,
             "vertical_flip":false,
-            "horizontal_flip":true
+            "horizontal_flip":false
         },
         {
             "name":"normalize_channels",
