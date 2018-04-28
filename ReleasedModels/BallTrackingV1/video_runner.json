@@ -20,14 +20,14 @@
         {
             "name":"normalize_channels",
             "input":"frame_small",
-            "output":"frame_small",
+            "output":"frame_small_normalized",
             "max":1.0,
             "min":0.0
         },
         {
             "name":"run_model",
-            "input":"frame_small",
-            "model_file":"models_315.model",
+            "input":"frame_small_normalized",
+            "model_file":"models_186.model",
             "output":"rod_onehot"
         },
         {
@@ -50,6 +50,18 @@
             "text_from_value":"probability"
         },
         {
+            "name":"frame_write_text",
+            "input_output":"frame_small",
+            "line":0,
+            "text_from_value":"rod"
+        },
+        {
+            "name":"frame_write_text",
+            "input_output":"frame_small",
+            "line":1,
+            "text_from_value":"probability"
+        },
+        {
             "name":"show_frame",
             "input":"frame",
             "display":"Rod Control"
@@ -59,7 +71,15 @@
             "frame_to_output":"frame",
             "values_to_output":[],
             "folder":".",
-            "filename_prefix":"webcam",
+            "filename_prefix":"video_large",
+            "frames_per_chunk":10000000000
+        },
+        {
+            "name":"basic_writer",
+            "frame_to_output":"frame_small",
+            "values_to_output":[],
+            "folder":".",
+            "filename_prefix":"video_small",
             "frames_per_chunk":10000000000
         }
     ]

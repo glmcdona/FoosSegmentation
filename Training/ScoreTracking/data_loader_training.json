@@ -1,0 +1,47 @@
+{
+    "transforms":
+    [
+        {
+            "name":"random_video_loader",
+            "endswith":".avi",
+            "folder":".\\..\\..\\Data\\Processed\\ScoreTracking\\",
+            "output":"frame",
+            "take_first_x_percent":80,
+            "value_loader":
+            {
+                "json":
+                {
+                    "values_to_load":["score_close","score_far","games_close","games_far"]
+                }
+            },
+            "repeats":[]
+        },
+        {
+            "name":"randomize_frame",
+            "input":"frame",
+            "output":"frame",
+            "chance_no_change":0.3,
+            "zoom_range":[1.0, 1.2],
+            "rotation_range":5,
+            "width_shift_range":0.15,
+            "height_shift_range":0.03,
+            "shear_range":0.05,
+            "fill_mode":"nearest",
+            "gaussian_noise":0.05,
+            "white_noise":0.02,
+            "saturation_chance":0.5,
+            "saturation_max_amount":0.5,
+            "swap_channels":true,
+            "invert_channels":false,
+            "vertical_flip":false,
+            "horizontal_flip":true
+        },
+        {
+            "name":"normalize_channels",
+            "input":"frame",
+            "output":"frame",
+            "max":1.0,
+            "min":0.0
+        }
+    ]
+}

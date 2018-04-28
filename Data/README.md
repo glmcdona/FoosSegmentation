@@ -49,12 +49,12 @@ We need contributions of video chunks here! Just follow the guidelines and namin
 
 Notes on the requirements for video chunks for training the model:
 * Video chunks are expected to be pretty long, eg 1 minute each.
-* Export the video chunks at 3 FPS! The score doesn't change often, we only need 1 frame a second to track score.
+* Export the video chunks at 3 FPS! The score doesn't change often.
 * A video chunk requires that the game score is constant for the whole chunk (eg, it is 3 to 2 in the first game for the whole video).
-* Chunks should not be from where the ball and ords is still for minutes on-end, action on the table is important.
+* Chunks should not be from where the ball and rods is still for minutes on-end, action on the table is important.
 * Doubles or singles matches is OK.
 * Both player scores should be visible in the video frame.
-* View of the scores can be obstructed for short times (eg 15 seconds), but should be visible most of the time.
+* View of the scores should be visible for the whole chunk
 * The whole table is in the video frame. It is OK to have some of the table obscured by a table light or similar.
 
 

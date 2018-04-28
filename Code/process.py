@@ -71,7 +71,7 @@ class Processor():
         for transform in self.transforms:
             data = transform.process(data)
             if data is None:
-                print("Transform of type '%s' returned None." % transform.__class__.__name__)
+                #print("Transform of type '%s' returned None." % transform.__class__.__name__)
                 if transform.stop_all_on_return_null():
                     done = True
                 break

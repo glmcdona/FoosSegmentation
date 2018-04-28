@@ -1,6 +1,7 @@
 # Model files
 *.h5
 *.hdf
+hofc.mp4
 *debug.avi
 
 # Byte-compiled / optimized / DLL files

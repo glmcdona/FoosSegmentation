@@ -27,7 +27,7 @@
         {
             "name":"run_model",
             "input":"frame_small",
-            "model_file":"models_315.model",
+            "model_file":"models_186.model",
             "output":"rod_onehot"
         },
         {
@@ -59,7 +59,7 @@
             "frame_to_output":"frame",
             "values_to_output":[],
             "folder":".",
-            "filename_prefix":"webcam",
+            "filename_prefix":"video",
             "frames_per_chunk":10000000000
         }
     ]

@@ -34,6 +34,8 @@ class VideoLoaderRandom(Transform):
         # until there are no frames left.
 
         self.output = config["output"]
+        if "repeats" not in config:
+            config["repeats"] = None
 
         # Create the chunks
         self.chunks = []
@@ -186,6 +188,9 @@ class OneHot(Transform):
         self.input = config["input"]
         self.output = config["output"]
         self.dictionary = config["dictionary"]
+        self.out_of_map_value = None
+        if "out_of_map_value" in config:
+            self.out_of_map_value = config["out_of_map_value"]
 
     def prerun(self, data):
         # Gets run with all the data prior to real run. Used to build term dictionary
@@ -199,7 +204,10 @@ class OneHot(Transform):
         # Build the one-hot array
         result = np.zeros((len(self.dictionary), len(data[self.input])))
         for i in range(len(data[self.input])):
-            result[self.dictionary.index(data[self.input][i]),i] = 1
+            if data[self.input][i] in self.dictionary:
+                result[self.dictionary.index(data[self.input][i]),i] = 1
+            else:
+                result = self.out_of_map_value
 
         # Write the result
         data[self.output] = result

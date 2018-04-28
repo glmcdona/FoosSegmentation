@@ -1,0 +1,74 @@
+{
+    "transforms":
+    [
+        {
+            "name":"random_video_loader",
+            "endswith":"",
+            "folder":".\\Raw\\ScoreTracking\\",
+            "output":"frame",
+            "value_loader":
+            {
+                "delimited_filename":
+                {
+                    "filename":"filename",
+                    "delimiter":"_",
+                    "token_load":
+                    {
+                        "note": 0,
+                        "score_close": [1],
+                        "score_far": [2],
+                        "games_close": [3],
+                        "games_far": [4]
+                    }
+                }
+            }
+        },
+        {
+            "name":"require",
+            "input":"frame"
+        },
+        {
+            "name":"one-hot",
+            "input":"score_close",
+            "output":"score_close",
+            "out_of_map":null,
+            "dictionary":["0","1","2","3","4","5"]
+        },
+        {
+            "name":"one-hot",
+            "input":"score_far",
+            "output":"score_far",
+            "out_of_map":null,
+            "dictionary":["0","1","2","3","4","5"]
+        },
+        {
+            "name":"one-hot",
+            "input":"games_close",
+            "output":"games_close",
+            "out_of_map":null,
+            "dictionary":["0","1","2","3"]
+        },
+        {
+            "name":"one-hot",
+            "input":"games_far",
+            "output":"games_far",
+            "out_of_map_value":null,
+            "dictionary":["0","1","2","3"]
+        },
+        {
+            "name":"resize",
+            "input":"frame",
+            "output":"frame",
+            "size":[135,240],
+            "resize_mode":"stretch"  
+        },
+        {
+            "name":"basic_writer",
+            "frame_to_output":"frame",
+            "values_to_output":["score_close","score_far","games_close","games_far","filename"],
+            "folder":".\\Processed\\ScoreTracking",
+            "filename_prefix":"scoretracking",
+            "frames_per_chunk":10000
+        }
+    ]
+}
