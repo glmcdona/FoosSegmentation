@@ -48,6 +48,8 @@ class Processor():
                     self.transforms.append( transforms.FrameWriteText(transform) )
                 elif transform["name"] == "show_frame":
                     self.transforms.append( transforms.ShowFrame(transform) )
+                elif transform["name"] == "print_distribution":
+                    self.transforms.append( transforms.PrintDistribution(transform) )
                 else:
                     print("ERROR: Transform not found '%s'" % transform["name"])
         

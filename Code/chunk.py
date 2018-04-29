@@ -31,11 +31,11 @@ class Chunk():
             for repeat in self.repeats:
                 if repeat["match_type"] == "partial_match_filename":
                     if repeat["value_match"] in video_filename:
-                        repeat_times = max( repeat_times, repeat["repeat_times"] )
+                        repeat_times = repeat_times * repeat["repeat_times"]
         if repeat_times != 1:
-            print("'%s': Repeating %i times." % (self.file,repeat_times))
+            print("'%s': Repeating %f times." % (self.file,repeat_times))
         
-        self.length = self.num_frames * repeat_times
+        self.length = int(self.num_frames * repeat_times)
 
         self.width = None
         self.height = None
@@ -46,6 +46,10 @@ class Chunk():
                 self.width = np.shape(first_frame)[1]
                 self.height = np.shape(first_frame)[0]
     
+    def get_frame_value(self, index):
+        # Load the value for the frame
+        return self.value_loader.get_values(index)
+
     def get_frame(self, index):
         frame = None
         values = {}

@@ -33,7 +33,10 @@ class VideoLoaderRandom(Transform):
         # Special frame loader that loads a randomly sample frame from any position in any video
         # until there are no frames left.
 
-        self.output = config["output"]
+        self.output = None
+        if "output" in config:
+            self.output = config["output"]
+        
         if "repeats" not in config:
             config["repeats"] = None
 
@@ -87,9 +90,12 @@ class VideoLoaderRandom(Transform):
         chunk_index, index = self.load_sequence[self.frame_index]
         self.frame_index += 1
 
-        # Get the frame and vlues
-        frame, values = self.chunks[chunk_index].get_frame(index)
-        data[self.output] = frame
+        # Get the frame and values
+        if self.output is None:
+            values = self.chunks[chunk_index].get_frame_value(index)
+        else:
+            frame, values = self.chunks[chunk_index].get_frame(index)
+            data[self.output] = frame
 
         # Merge the values
         for name, value in values.items():
@@ -636,3 +642,31 @@ class OneHotToName(Transform):
 
         # Continue
         return data
+
+
+class PrintDistribution(Transform):
+    def __init__(self, config):
+        self.input = config["input"]
+        self.strip_numbers = False
+        if "strip_numbers" in config:
+            self.strip_numbers = config["strip_numbers"]
+        self.counts = {}
+
+    def process(self, data):
+        term = str(data[self.input])
+        if term is None:
+            term = "None"
+        if self.strip_numbers:
+            term = ''.join(i for i in term if not i.isdigit())
+
+        # Add the count
+        if term not in self.counts:
+            self.counts[term] = 0
+        self.counts[term] += 1
+
+        # Continue
+        return data
+
+    def finalize(self):
+        # Print the distribution
+        pp.pprint(self.counts)

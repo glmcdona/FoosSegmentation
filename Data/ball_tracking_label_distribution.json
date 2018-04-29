@@ -5,7 +5,6 @@
             "name":"random_video_loader",
             "endswith":"",
             "folder":".\\Raw\\BallTracking\\",
-            "output":"frame",
             "value_loader":
             {
                 "delimited_filename":
@@ -54,29 +53,14 @@
             ]
         },
         {
-            "name":"require",
-            "input":"frame"
-        },
-        {
-            "name":"one-hot",
+            "name":"print_distribution",
             "input":"values",
-            "output":"values",
-            "dictionary":["g1","d1","o1","f1","f2","o2","d2","g2","-2"]
+            "strip_numbers":true
         },
         {
-            "name":"resize",
-            "input":"frame",
-            "output":"frame",
-            "size":[135,240],
-            "resize_mode":"stretch"  
-        },
-        {
-            "name":"basic_writer",
-            "frame_to_output":"frame",
-            "values_to_output":["values","filename"],
-            "folder":".\\Processed\\BallTracking",
-            "filename_prefix":"balltracking",
-            "frames_per_chunk":10000
+            "name":"print_distribution",
+            "input":"note",
+            "strip_numbers":true
         }
     ]
 }

@@ -1,0 +1,1 @@
+python ..\Code\process.py process ball_tracking_label_distribution.json
