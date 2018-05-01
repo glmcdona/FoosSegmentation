@@ -256,8 +256,10 @@ class NormalizePerChannel(Transform):
         for channel in range(data[self.input].shape[2]):
             min = np.min(new_frame[:,:,channel])
             max = np.max(new_frame[:,:,channel])
-            
-            new_frame[:,:,channel] = ( (new_frame[:,:,channel] - min) / (max - min) ) * (self.max - self.min) + self.min
+            if min != max:
+                new_frame[:,:,channel] = ( (new_frame[:,:,channel] - min) / (max - min) ) * (self.max - self.min) + self.min
+            else:
+                new_frame[:,:,channel] = new_frame[:,:,channel] - min
 
         data[self.output] = new_frame
         return data
