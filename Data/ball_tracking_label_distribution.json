@@ -23,17 +23,22 @@
                 {
                     "match_type":"partial_match_filename",
                     "value_match":"ProChunk",
-                    "repeat_times":3
+                    "repeat_times":2
                 },
                 {
                     "match_type":"partial_match_filename",
                     "value_match":"Nationals",
-                    "repeat_times":3
+                    "repeat_times":2
                 },
                 {
                     "match_type":"partial_match_filename",
                     "value_match":"Worlds",
-                    "repeat_times":3
+                    "repeat_times":2
+                },
+                {
+                    "match_type":"partial_match_filename",
+                    "value_match":"TKOSpreMoore",
+                    "repeat_times":2
                 },
                 {
                     "match_type":"partial_match_filename",
@@ -49,6 +54,11 @@
                     "match_type":"partial_match_filename",
                     "value_match":"_f",
                     "repeat_times":1.55
+                },
+                {
+                    "match_type":"partial_match_filename",
+                    "value_match":"TableView_-2",
+                    "repeat_times":3
                 }
             ]
         },
