@@ -42,13 +42,18 @@
                 },
                 {
                     "match_type":"partial_match_filename",
+                    "value_match":"2018TKO13",
+                    "repeat_times":2
+                },
+                {
+                    "match_type":"partial_match_filename",
                     "value_match":"_g",
                     "repeat_times":4.7
                 },
                 {
                     "match_type":"partial_match_filename",
                     "value_match":"_d",
-                    "repeat_times":1.54
+                    "repeat_times":1.0
                 },
                 {
                     "match_type":"partial_match_filename",
@@ -59,6 +64,21 @@
                     "match_type":"partial_match_filename",
                     "value_match":"TableView_-2",
                     "repeat_times":3
+                }
+            ]
+        },
+        {
+            "name":"replace",
+            "input_output":"values",
+            "replacements":
+            [
+                {
+                    "from":["g1"],
+                    "to":["d1"]
+                },
+                {
+                    "from":["g2"],
+                    "to":["d2"]
                 }
             ]
         },

@@ -189,6 +189,19 @@ class Require(Transform):
 
         return data
 
+class Replace(Transform):
+    def __init__(self, config):
+        self.input_output = config["input_output"]
+        self.replacements = config["replacements"]
+
+
+    def process(self, data):
+        for replacement in self.replacements:
+            if replacement["from"] == data[self.input_output]:
+                data[self.input_output] = replacement["to"]
+
+        return data
+
 class OneHot(Transform):
     def __init__(self, config):
         self.input = config["input"]

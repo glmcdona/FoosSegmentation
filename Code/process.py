@@ -36,6 +36,8 @@ class Processor():
                     self.transforms.append( transforms.BasicWriter(transform) )
                 elif transform["name"] == "require":
                     self.transforms.append( transforms.Require(transform) )
+                elif transform["name"] == "replace":
+                    self.transforms.append( transforms.Replace(transform) )
                 elif transform["name"] == "randomize_frame":
                     self.transforms.append( transforms.RandomizeFrame(transform) )
                 elif transform["name"] == "single_video_loader":
