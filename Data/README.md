@@ -19,7 +19,7 @@ Notes on the requirements for video chunks for training the model:
 * Doubles, singles matches, or video where you are passing the ball side-to-side by yourself is OK.
 * The ball looking blurry because it's moving is great.
 * Both player scores should be visible in the video frame.
-* The whole table is in the video frame. It is OK to have some of the table obscured by a table light or gaps in visibily when the ball is close to the edge of the table.
+* The whole table is in the video frame OR zoomed in to the far offense. It is OK to have some of the table obscured by a table light or gaps in visibily when the ball is close to the edge of the table.
 
 ### Ball Tracking: Video Chunk Naming Convention
 
@@ -28,8 +28,8 @@ The naming convention for the video files defines how the ML model learns from t
 
 Name | Description
 ----|-----
-&lt;custom note&gt; | Anything. You can write the match name and chunk number here if you want. I use the video name plus chunk number here.
-&lt;rod code&gt; | <ul><li>-2 for ball out of play for whole chunk</li><li>-1 for ball bouncing around between rods for whole chunk (no rod has control of the ball for any part of the chunk)</li><li>g1 for the closest goalie rod</li><li>g2 for the furthest goalie rod</li><li>d1 for closest defense rod</li><li>d2 for furthest defense rod</li><li>o1 for closest offense rod</li><li>o2 for furthest offense rod</li><li>f1 for closest five-bar rod</li><li>f2 for furthest five-bar rod</li></ul>
+&lt;custom note&gt; | Match name plus chunk number here.
+&lt;rod code&gt; | <ul><li>-2 for ball out of play for whole chunk. This includes the time when a player's hand and wrist is fully over the table before/after placing the ball at the 5-bar</li><li>d1 for closest defense rod or goalie</li><li>d2 for furthest defense rod or goalie</li><li>o1 for closest offense rod</li><li>o2 for furthest offense rod</li><li>f1 for closest five-bar rod</li><li>f2 for furthest five-bar rod</li></ul>
 
 For example for a video chunk where the close defensemen has control of the rod the whole time, I might name it:
 * SpredemanVsMooreChunk1_d1.mp4
