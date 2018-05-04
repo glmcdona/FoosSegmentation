@@ -27,7 +27,7 @@
         {
             "name":"run_model",
             "input":"frame_small",
-            "model_file":"models_155.model",
+            "model_file":"weights_207.model",
             "output":"rod_onehot"
         },
         {

@@ -3,7 +3,7 @@
     [
         {
             "name":"single_video_loader",
-            "video_file":"e:\\Foosball Videos\\TKO\\2018 TKO 1.mp4",
+            "video_file":"e:\\Foosball Videos\\TKO\\2018 TKO 2.mp4",
             "output":"frame"
         },
         {
@@ -27,7 +27,7 @@
         {
             "name":"run_model",
             "input":"frame_small_normalized",
-            "model_file":"models_155.model",
+            "model_file":"weights_207.model",
             "output":"rod_onehot"
         },
         {
