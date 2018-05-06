@@ -13,14 +13,24 @@ These video chunks are in the folder BallTracking, and used to teach the AI whic
 
 ### Ball Tracking: Video Chunk Guidelines
 
-Notes on the requirements for video chunks for training the model:
-* A video chunk requires that the same rod has control of the ball for the WHOLE video chunk.
+#### Notes on the requirements for video chunks for training the model:
+
+* A video chunk requires that the same Zone has control of the ball for the WHOLE video chunk.
 * Chunks should not be from where the ball is still for minutes on-end.
 * Doubles, singles matches, or video where you are passing the ball side-to-side by yourself is OK.
 * The ball looking blurry because it's moving is great.
 * Both player scores should be visible in the video frame.
 * The whole table is in the video frame OR zoomed in to the far offense. It is OK to have some of the table obscured by a table light or gaps in visibily when the ball is close to the edge of the table.
 
+#### Notes on Cutting Video Chunks
+
+* Each video chunk should be exclusively With or Without Possession.
+  <ul><li>Without Possession of the ball
+  <ul><li>Timeout: START just before the hands leave the handles. END right before the ball is served.</li><li>Ball out of play: START as soon as the ball leaves the play surface. END right before the ball is served.</li><li>Between Games: START as soon as the final goal is scored. END right before the ball is served.</li></ul>
+  </li><li>With Possession of the ball in a specific Zone</li>
+  <ul><li>On the Serve: START after the ready rule, and ball is in play. END when no possession in that Zone.</li>
+  <li>During game play: START once a player has control of the ball. END when no possession in that Zone.</li></ul></ul>
+     
 ### Ball Tracking: Video Chunk Naming Convention
 
 The naming convention for the video files defines how the ML model learns from the video chunk and it is important to name them correctly. Before uploading any, try and double-check each filename by quickly checking the video contents. The naming convention is:
@@ -29,7 +39,7 @@ The naming convention for the video files defines how the ML model learns from t
 Name | Description
 ----|-----
 &lt;custom note&gt; | Match name plus chunk number here.
-&lt;rod code&gt; | <ul><li>-2 for ball out of play for whole chunk. This includes the time when a player's hand and wrist is fully over the table before/after placing the ball at the 5-bar</li><li>d1 for closest defense rod or goalie</li><li>d2 for furthest defense rod or goalie</li><li>o1 for closest offense rod</li><li>o2 for furthest offense rod</li><li>f1 for closest five-bar rod</li><li>f2 for furthest five-bar rod</li></ul>
+&lt;zone code&gt; | <ul><li>-2 Without Possession. This includes the time when a player's hand and wrist is fully over the table before/after placing the ball at the 5-bar</li><li>d1 for closest defense rod or goalie</li><li>d2 for furthest defense rod or goalie</li><li>o1 for closest offense rod</li><li>o2 for furthest offense rod</li><li>f1 for closest five-bar rod</li><li>f2 for furthest five-bar rod</li></ul>
 
 For example for a video chunk where the close defensemen has control of the rod the whole time, I might name it:
 * SpredemanVsMooreChunk1_d1.mp4
