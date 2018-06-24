@@ -1,0 +1,43 @@
+{
+    "transforms":
+    [
+        {
+            "name":"random_video_loader",
+            "endswith":"",
+            "folder":".\\Raw\\RawMatches\\",
+            "output":"frame",
+            "exclusions":["Championships 2"],
+            "frame_skipfirst_per_video":1000,
+            "frame_limit_per_video":50000,
+            "random":false,
+            "value_loader":
+            {
+                "delimited_filename":
+                {
+                    "filename":"filename",
+                    "delimiter":"_",
+                    "token_load":
+                    {
+                    }
+                }
+            }
+        },
+        {
+            "name":"require",
+            "input":"frame"
+        },
+        {
+            "name":"resize",
+            "input":"frame",
+            "output":"frame",
+            "size":[135,240],
+            "resize_mode":"stretch"  
+        },
+        {
+            "name":"basic_writer_named",
+            "frame_to_output":"frame",
+            "folder":".\\Processed\\FramePrediction\\Training",
+            "p_filename":"filename"
+        }
+    ]
+}

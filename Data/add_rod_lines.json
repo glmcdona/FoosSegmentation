@@ -1,0 +1,46 @@
+{
+    "transforms":
+    [
+        {
+            "name":"single_frame_loader_middle",
+            "endswith":"",
+            "folder":".\\Raw\\BallTracking\\",
+            "output":"frame",
+            "value_loader":
+            {
+                "json":
+                {
+                    "values_to_load":["rod_lines"]
+                }
+            },
+            "repeats":[]
+        },
+        {
+            "name":"require",
+            "input":"frame"
+        },
+        {
+            "name":"require",
+            "input":"rod_lines",
+            "condition":"does not exist"
+        },
+        {
+            "name":"line_selection",
+            "input_frame":"frame",
+            "title":"Rod Selection",
+            "line_names":["Close goalie","Close defense","Close offense","Close 5-bar","Far 5-bar","Far offense","Far defense","Far goalie"],
+            "output_lines":"rod_lines"
+        },
+        {
+            "name":"require",
+            "input":"rod_lines"
+        },
+        {
+            "name":"json_writer",
+            "folder":".\\Raw\\BallTracking\\",
+            "filename_prefix_inputname":"filename_noext",
+            "values_per_chunk":1,
+            "values_to_output":["rod_lines"]
+        }
+    ]
+}
