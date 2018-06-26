@@ -546,6 +546,54 @@ class Resize(Transform):
         return data
 
 
+class FrameDifference(Transform):
+    def __init__(self, config):
+        self.inputs = config["inputs"]
+        self.output = config["output"]
+        self.abs = config["abs"]
+
+    def process(self, data):
+        # Frame difference
+        if self.abs:
+            result = abs(data[self.inputs[1]] - data[self.inputs[0]])
+        else:
+            result = data[self.inputs[1]] - data[self.inputs[0]]
+        
+        # Write the result
+        data[self.output] = result
+
+        return data
+
+class Threshold(Transform):
+    def __init__(self, config):
+        self.input = config["input"]
+        self.threshold = config["threshold"]
+        self.min = config["min"]
+        self.max = config["max"]
+
+    def process(self, data):
+        # Above threshold -> max
+        # Below threshold -> min
+        above = data[self.input] > self.threshold
+        below = data[self.input] <= self.threshold
+
+        data[self.input][above] = self.max
+        data[self.input][below] = self.min
+        return data
+
+class ChannelMax(Transform):
+    def __init__(self, config):
+        self.input = config["input"]
+        self.output = config["output"]
+
+    def process(self, data):
+        # Above threshold -> max
+        # Below threshold -> min
+        max_data = np.amax(data[self.input], 2)
+        for i in range(3):
+            data[self.output][:,:,i] = max_data
+        return data
+
 class NormalizePerChannel(Transform):
     def __init__(self, config):
         self.input = config["input"]

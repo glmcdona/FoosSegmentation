@@ -62,6 +62,12 @@ class Processor():
                     self.transforms.append( transforms.LineSelection(transform) )
                 elif transform["name"] == "print_distribution":
                     self.transforms.append( transforms.PrintDistribution(transform) )
+                elif transform["name"] == "frame_difference":
+                    self.transforms.append( transforms.FrameDifference(transform) )
+                elif transform["name"] == "threshold":
+                    self.transforms.append( transforms.Threshold(transform) )
+                elif transform["name"] == "channel_max":
+                    self.transforms.append( transforms.ChannelMax(transform) )
                 else:
                     print("ERROR: Transform not found '%s'" % transform["name"])
         
