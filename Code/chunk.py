@@ -15,10 +15,11 @@ class Chunk():
 
         # Add the value loader
         self.value_loader = None
-        if "delimited_filename" in value_loader_config:
-            self.value_loader = ValueLoader_DelimitedFilename(video_filename, value_loader_config["delimited_filename"])
-        elif "json" in value_loader_config:
-            self.value_loader = ValueLoader_Json(video_root, video_filename, value_loader_config["json"])
+        if value_loader_config is not None:
+            if "delimited_filename" in value_loader_config:
+                self.value_loader = ValueLoader_DelimitedFilename(video_filename, value_loader_config["delimited_filename"])
+            elif "json" in value_loader_config:
+                self.value_loader = ValueLoader_Json(video_root, video_filename, value_loader_config["json"])
 
         # Calculate the chunk length
         self.reader = cv2.VideoCapture(self.file)
@@ -48,6 +49,9 @@ class Chunk():
     
     def get_frame_value(self, index):
         # Load the value for the frame
+        if self.value_loader is None:
+            return None
+        
         return self.value_loader.get_values(index)
 
     def get_frame(self, index):
@@ -63,7 +67,10 @@ class Chunk():
                     frame = new_frame
 
         # Load and merge the associated values
-        values = self.value_loader.get_values(index)
+        if self.value_loader is None:
+            values = None
+        else:
+            values = self.value_loader.get_values(index)
 
         return frame, values
 
@@ -86,6 +93,9 @@ class ValueLoader_DelimitedFilename():
             # Add this named value
             self.values[name] = items
 
+        self.filename_noext = filename.split(".")[0]
+        self.values["filename_noext"] = self.filename_noext
+
     def get_values(self, index):
         # Constant set of values depending on filename
         return self.values
@@ -93,13 +103,19 @@ class ValueLoader_DelimitedFilename():
 class ValueLoader_Json():
     def __init__(self, video_root, filename, value_loader_config):
         # Parse the filename according to the config as the value
-        json_file = os.path.join(video_root, filename.split(".")[0] + ".json")
-        data = codecs.open(json_file, 'r', encoding='utf-8').read()
-        self.data = json.loads(data)
+        self.filename_noext = filename.split(".")[0]
+        json_file = os.path.join(video_root, self.filename_noext + ".json")
+        if os.path.isfile(json_file):
+            data = codecs.open(json_file, 'r', encoding='utf-8').read()
+            self.data = json.loads(data)
+        else:
+            self.data = {}
 
     def get_values(self, index):
         # Constant set of values depending on filename
         values = {}
         for name, array in self.data.items():
             values[name] = array[index]
+        
+        values["filename_noext"] = self.filename_noext
         return values

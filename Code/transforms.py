@@ -10,6 +10,7 @@ from keras.preprocessing.image import *
 import keras
 
 class Transform():
+
     def __init__(self):
         pass
 
@@ -29,6 +30,141 @@ class Transform():
         return None
 
 class VideoLoaderRandom(Transform):
+
+    def __init__(self, config):
+        # Special frame loader that loads a randomly sample frame from any position in any video
+        # until there are no frames left.
+
+        self.output = None
+        self.num_frames = 0
+        if "output" in config:
+            self.output = config["output"]
+            self.num_frames = 1
+
+        self.outputs = None
+        if "outputs" in config:
+            self.outputs = config["outputs"]
+            self.num_frames = len(self.outputs)
+        
+        if "repeats" not in config:
+            config["repeats"] = None
+
+        if "value_loader" not in config:
+            config["value_loader"] = None
+
+        self.random = True
+        if "random" in config:
+            self.random = config["random"]
+
+        self.frame_skipfirst_per_video = 0
+        if "frame_skipfirst_per_video" in config:
+            self.frame_skipfirst_per_video = config["frame_skipfirst_per_video"]
+
+        # Create the chunks
+        self.chunks = []
+        print("Adding folder '%s'" % config["folder"])
+        for root, dirs, files in os.walk(config["folder"]):
+            for file in files:
+                #print("File '%s'" % file)            
+                if file.endswith(config["endswith"]):
+                    include = True
+                    if "inclusions" in config:
+                        include = False
+                        for inclusion in config["inclusions"]:
+                            if inclusion in file:
+                                include = True
+                    
+                    if "exclusions" in config:
+                        for exclusion in config["exclusions"]:
+                            if exclusion in file:
+                                include = False
+
+                    if include:
+                        #print("Adding chunk from file '%s'" % file)
+                        self.chunks.append( Chunk(root, file, config["value_loader"], config["repeats"]) )
+        
+        # Load the frame limit per video
+        self.frame_limit_per_video = 1000000000
+        if "frame_limit_per_video" in config:
+            self.frame_limit_per_video = config["frame_limit_per_video"]
+
+        # Build the set chunk+frame pairs as the load order
+        self.load_sequence = []
+        self.distribution = {}
+        for i in range(0,len(self.chunks)):
+            group = ''.join(i for i in self.chunks[i].video_filename if not i.isdigit())
+            if group not in self.distribution:
+                self.distribution[group] = self.chunks[i].length
+            else:
+                self.distribution[group] += self.chunks[i].length
+            
+            for j in range(0 + self.frame_skipfirst_per_video, min([self.chunks[i].length - self.num_frames + 1, self.frame_limit_per_video + self.frame_skipfirst_per_video - self.num_frames + 1])):
+                self.load_sequence.append([i, range(j, j+self.num_frames)])
+        
+        if "take_first_x_percent" in config:
+            self.load_sequence = self.load_sequence[0:math.floor(len(self.load_sequence) * (config["take_first_x_percent"] / 100.0))]
+        
+        if "take_last_x_percent" in config:
+            self.load_sequence = self.load_sequence[math.ceil(len(self.load_sequence) * (1.0 - config["take_last_x_percent"] / 100.0)):-1]
+
+        # Shuffle the frame order
+        if self.random:
+            random.shuffle(self.load_sequence)
+        
+        self.frame_index = 0
+        print("Loaded %i frames in loader." % len(self.load_sequence))
+        print("Distribution:")
+        print(self.distribution)
+
+    def stop_all_on_return_null(self):
+        return True
+
+    def length(self):
+        return len(self.load_sequence)
+    
+    def process(self, data):
+        # Get the next frame along with the data
+        if self.frame_index >= len(self.load_sequence):
+            return None
+        
+        chunk_index, indices = self.load_sequence[self.frame_index]
+        self.frame_index += 1
+
+        if len(indices) == 1:
+            # Process single frame and values
+            if self.output is None:
+                values = self.chunks[chunk_index].get_frame_value(indices[0])
+            else:
+                frame, values = self.chunks[chunk_index].get_frame(indices[0])
+                data[self.output] = frame
+
+            # Merge the values
+            if values is not None:
+                for name, value in values.items():
+                    data[name] = value
+        else:
+            # Process array of frames and values.
+            # Adds prefix of "<output name>_" to data values to keep them separate.
+            for idx, index in enumerate(indices):
+                output_name = self.outputs[idx]
+
+                # Get the frame and values
+                frame, values = self.chunks[chunk_index].get_frame(index)
+                data[output_name] = frame
+
+                # Merge the values
+                if values is not None:
+                    for name, value in values.items():
+                        data["%s_%s" % (output_name,name)] = value
+        
+        return data
+    
+    def finalize(self):
+        self.frame_index = 0
+
+
+
+class SingleFrameLoaderMiddle(Transform):
     def __init__(self, config):
         # Special frame loader that loads a randomly sample frame from any position in any video
         # until there are no frames left.
@@ -36,9 +172,6 @@ class VideoLoaderRandom(Transform):
         self.output = None
         if "output" in config:
             self.output = config["output"]
-        
-        if "repeats" not in config:
-            config["repeats"] = None
 
         # Create the chunks
         self.chunks = []
@@ -52,29 +185,11 @@ class VideoLoaderRandom(Transform):
         
         # Build the set chunk+frame pairs as the load order
         self.load_sequence = []
-        self.distribution = {}
         for i in range(0,len(self.chunks)):
-            group = ''.join(i for i in self.chunks[i].video_filename if not i.isdigit())
-            if group not in self.distribution:
-                self.distribution[group] = self.chunks[i].length
-            else:
-                self.distribution[group] += self.chunks[i].length
-            
-            for j in range(0, self.chunks[i].length):
-                self.load_sequence.append([i, j])
+            self.load_sequence.append([i, int(self.chunks[i].length/2)])
         
-        if "take_first_x_percent" in config:
-            self.load_sequence = self.load_sequence[0:math.floor(len(self.load_sequence) * (config["take_first_x_percent"] / 100.0))]
-        
-        if "take_last_x_percent" in config:
-            self.load_sequence = self.load_sequence[math.ceil(len(self.load_sequence) * (1.0 - config["take_last_x_percent"] / 100.0)):-1]
-
-        # Shuffle the frame order
-        random.shuffle(self.load_sequence)
         self.frame_index = 0
-        print("Loaded %i frames in random loader." % len(self.load_sequence))
-        print("Distribution:")
-        print(self.distribution)
+        print("Loaded %i frames in single frame loader." % len(self.load_sequence))
 
     def stop_all_on_return_null(self):
         return True
@@ -107,13 +222,75 @@ class VideoLoaderRandom(Transform):
         self.frame_index = 0
 
 
+class JsonWriter(Transform):
+    def __init__(self, config):
+        self.folder = config["folder"]
+        filename_prefix = None
+        if filename_prefix in config:
+            self.filename_prefix = config["filename_prefix"]
+        self.filename_prefix_inputname = None
+        if "filename_prefix_inputname" in config:
+            self.filename_prefix_inputname = config["filename_prefix_inputname"]
+        self.values_per_chunk = config["values_per_chunk"]
+        self.values_to_output = config["values_to_output"]
+        self.values_written = 0
+        self.current_chunk = 0
+
+        if not os.path.exists(self.folder):
+            os.makedirs(self.folder)
+
+        self.json_output_data = {}
+
+    def process(self, data):
+        # Get current chunk
+        chunk_number = int( self.values_written / self.values_per_chunk )
+
+        # Finalize chunks
+        if chunk_number != self.current_chunk:
+            self.finalize_chunk()
+
+        # Set the filename ooutput for the json
+        if self.filename_prefix_inputname is not None:
+            self.filename_prefix = data[self.filename_prefix_inputname]
+
+        # Add the output data
+        for key, value in data.items():
+            if key in self.values_to_output:
+                if key not in self.json_output_data:
+                    self.json_output_data[key] = []
+                if type(value) is np.ndarray:
+                    self.json_output_data[key].append(value.tolist())
+                else:
+                    self.json_output_data[key].append(value)
+        
+        self.values_written += 1
+        return data
+    
+    def finalize(self):
+        self.finalize_chunk()
+        self.current_chunk = 0
+        self.values_written = 0
+
+    def finalize_chunk(self):
+        # Write the json data
+        if len(self.json_output_data) > 0:
+            with codecs.open(os.path.join(self.folder, "%s_%i.json" % (self.filename_prefix, self.current_chunk)), 'w', encoding='utf-8') as outfile:
+                json.dump(self.json_output_data, outfile, separators=(',', ':'), sort_keys=True, indent=4)
+                self.json_output_data = {}
+        
+        pass
+
 class BasicWriter(Transform):
     def __init__(self, config):
         self.folder = config["folder"]
         self.filename_prefix = config["filename_prefix"]
         self.frames_per_chunk = config["frames_per_chunk"]
         self.frame_to_output = config["frame_to_output"]
-        self.values_to_output = config["values_to_output"]
+
+        self.values_to_output = []
+        if "values_to_output" in config:
+            self.values_to_output = config["values_to_output"]
+
         self.frames_written = 0
         self.current_chunk = 0
 
@@ -176,16 +353,123 @@ class BasicWriter(Transform):
         
         pass
 
+
+class BasicWriterNamed(Transform):
+    def __init__(self, config):
+        self.folder = config["folder"]
+        self.p_filename = config["p_filename"]
+        self.frame_to_output = config["frame_to_output"]
+
+        self.values_to_output = []
+        if "values_to_output" in config:
+            self.values_to_output = config["values_to_output"]
+
+        self.frames_written = 0
+
+        if not os.path.exists(self.folder):
+            os.makedirs(self.folder)
+
+        self.current_filename = None
+        self.video_writer = None
+        self.json_output_data = {}
+
+    def process(self, data):
+        # Create the video writer
+        if self.video_writer is None or self.current_filename != data[self.p_filename]:
+            if self.video_writer is not None:
+                self.finalize_chunk()
+            
+            self.current_filename = data[self.p_filename]
+
+            # Load the frame size
+            shape = data[self.frame_to_output].shape
+
+            # Create the writer
+            fourcc = cv2.VideoWriter_fourcc(*'XVID') #cv2.VideoWriter_fourcc(*'DIVX')
+            self.video_writer = cv2.VideoWriter( os.path.join(self.folder, self.current_filename.split(".")[0] + ".avi"), fourcc, 30.0, (shape[1], shape[0]), True )
+            
+
+        # Write the camera frame
+        self.video_writer.write(data[self.frame_to_output])
+
+        # Add the output data
+        for key, value in data.items():
+            if key in self.values_to_output:
+                if key not in self.json_output_data:
+                    self.json_output_data[key] = []
+                if type(value) is np.ndarray:
+                    self.json_output_data[key].append(value.tolist())
+                else:
+                    self.json_output_data[key].append(value)
+        
+        self.frames_written += 1
+        return data
+    
+    def finalize(self):
+        self.finalize_chunk()
+        self.current_filename = None
+        self.frames_written = 0
+        self.video_writer = None
+
+    def finalize_chunk(self):
+        # Release the video writer
+        self.video_writer.release()
+        
+        # Write the json data
+        if len(self.json_output_data) > 0:
+            with codecs.open(os.path.join(self.folder, "%s.json" % (self.current_filename.split(".")[0])), 'w', encoding='utf-8') as outfile:
+                json.dump(self.json_output_data, outfile, separators=(',', ':'), sort_keys=True, indent=4)
+                self.json_output_data = {}
+        
+        pass
+
 class Require(Transform):
     def __init__(self, config):
         self.input = config["input"]
 
-    def process(self, data):
-        if self.input not in data:
-            return None
+        self.input_index = None
+        if "input_index" in config:
+            self.input_index = config["input_index"]
+        
+        self.condition = None
+        if "condition" in config:
+            self.condition = config["condition"]
 
-        if data[self.input] is None:
-            return None
+        self.value = None
+        if "value" in config:
+            self.value = config["value"]
+
+    def process(self, data):
+        if self.condition is None or self.condition == "must exist":
+            if self.input not in data:
+                return None
+
+            if data[self.input] is None:
+                return None
+
+            if self.input_index is not None:
+                if data[self.input][self.input_index] is None:
+                    return None
+
+        elif self.condition == "does not exist":
+            if self.input in data:
+                if data[self.input] is not None:
+                    if self.input_index is None:
+                        return None
+                    else:
+                        if data[self.input][self.input_index] is not None:
+                            return None
+        elif self.condition == "equals":
+            value = None
+            if self.input in data:
+                if data[self.input] is not None:
+                    if self.input_index is not None:
+                        value = data[self.input][self.input_index]
+                    else:
+                        value = data[self.input]
+
+            if value != self.value:
+                return None
 
         return data
 
@@ -199,6 +483,17 @@ class Replace(Transform):
         for replacement in self.replacements:
             if replacement["from"] == data[self.input_output]:
                 data[self.input_output] = replacement["to"]
+
+        return data
+
+class AddRandomNumber(Transform):
+    def __init__(self, config):
+        self.output = config["output"]
+        self.prng = np.random.RandomState()
+
+    def process(self, data):
+        # Add a random int
+        data[self.output] = self.prng.randint(1,1000000)
 
         return data
 
@@ -282,6 +577,10 @@ class RandomizeFrame(Transform):
         self.input = config["input"]
         self.output = config["output"]
 
+        self.p_seed = None
+        if "p_seed" in config:
+            self.p_seed = config["p_seed"]
+
         self.chance_no_change = 0.0
         if "chance_no_change" in config:
             self.chance_no_change = config["chance_no_change"]
@@ -361,8 +660,14 @@ class RandomizeFrame(Transform):
     def process(self, data):
         # Applies the configured random transformations to the input camera frame
 
-        # Based on Keras ImageDataGenerator, but with improvements
+        # Adapted based on Keras ImageDataGenerator, but with improvements
         #     https://github.com/fchollet/keras/blob/master/keras/preprocessing/image.py
+
+        # Set the seed if it is loaded from a data value
+        if self.p_seed is not None:
+            self.prng = np.random.RandomState(data[self.p_seed])
+            random.seed(data[self.p_seed])
+
 
         x = data[self.input]
 
@@ -623,6 +928,72 @@ class ShowFrame(Transform):
         cv2.destroyWindow(self.display)
 
 
+global refPt
+refPt = (0,0)
+def click_callback(event, x, y, flags, param):
+	global refPt
+	if event == cv2.EVENT_LBUTTONDOWN:
+		refPt = (x, y)
+
+class LineSelection(Transform):
+    def __init__(self, config):
+        self.input_frame = config["input_frame"]
+        self.title = config["title"]
+        self.line_names = config["line_names"]
+        self.output_lines = config["output_lines"]
+
+    def process(self, data):
+        # Show the frame
+        global refPt
+
+        data[self.output_lines] = []
+        for line in self.line_names:
+            # Select this line
+            cv2.namedWindow(line)
+            cv2.setMouseCallback(line, click_callback)
+            cv2.imshow(line, data[self.input_frame])
+
+            # Select left point
+            refPt = (0,0)
+            key = 0
+            while refPt == (0,0) and key != ord('q'):
+                key = cv2.waitKey(1) & 0xFF
+            
+            if refPt == (0,0) or key == ord('q'):
+                print("Cancelled selection of lines for this frame")
+                cv2.destroyWindow(line)
+                return None
+            left = refPt
+
+            # Select right point
+            refPt = (0,0)
+            key = 0
+            while refPt == (0,0) and key != ord('q'):
+                key = cv2.waitKey(1) & 0xFF
+            
+            if refPt == (0,0) or key == ord('q'):
+                print("Cancelled selection of lines for this frame")
+                cv2.destroyWindow(line)
+                return None
+            right = refPt
+            
+            # Swap left and right if needed
+            if left[0] > right[0]:
+                tmp = right
+                right = left
+                left = tmp
+
+            # Add the two points that define the line
+            data[self.output_lines].append([left, right])
+            cv2.destroyWindow(line)
+            cv2.line(data[self.input_frame], left, right, [0,0,0])
+        
+        # Continue
+        return data
+
+
+
+
 class RunModel(Transform):
     def __init__(self, config):
         self.input = config["input"]
@@ -643,11 +1014,18 @@ class OneHotToName(Transform):
         self.output = config["output"]
         self.map = config["map"]
 
+        self.ignores = []
+        if "ignores" in config:
+            self.ignores = config["ignores"]
+
         self.output_prob = None
         if "output_prob" in config:
             self.output_prob = config["output_prob"]
 
     def process(self, data):
+        for ignore in self.ignores:
+            data[self.input][ignore] = 0
+
         # Convert a One-Hot scoring to the winning category and probability
         index = data[self.input].argmax()
         data[self.output] = self.map[index]

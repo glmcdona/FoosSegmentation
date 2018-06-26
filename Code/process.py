@@ -28,12 +28,20 @@ class Processor():
                     self.transforms.append( transforms.OneHot(transform) )
                 elif transform["name"] == "resize":
                     self.transforms.append( transforms.Resize(transform) )
+                elif transform["name"] == "add_random_number":
+                    self.transforms.append( transforms.AddRandomNumber(transform))
                 elif transform["name"] == "normalize_channels":
                     self.transforms.append( transforms.NormalizePerChannel(transform) )
                 elif transform["name"] == "random_video_loader":
                     self.transforms.append( transforms.VideoLoaderRandom(transform) )
+                elif transform["name"] == "single_frame_loader_middle":
+                    self.transforms.append( transforms.SingleFrameLoaderMiddle(transform) )
                 elif transform["name"] == "basic_writer":
                     self.transforms.append( transforms.BasicWriter(transform) )
+                elif transform["name"] == "basic_writer_named":
+                    self.transforms.append( transforms.BasicWriterNamed(transform) )
+                elif transform["name"] == "json_writer":
+                    self.transforms.append( transforms.JsonWriter(transform) )
                 elif transform["name"] == "require":
                     self.transforms.append( transforms.Require(transform) )
                 elif transform["name"] == "replace":
@@ -50,6 +58,8 @@ class Processor():
                     self.transforms.append( transforms.FrameWriteText(transform) )
                 elif transform["name"] == "show_frame":
                     self.transforms.append( transforms.ShowFrame(transform) )
+                elif transform["name"] == "line_selection":
+                    self.transforms.append( transforms.LineSelection(transform) )
                 elif transform["name"] == "print_distribution":
                     self.transforms.append( transforms.PrintDistribution(transform) )
                 else:
