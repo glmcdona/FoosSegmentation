@@ -320,6 +320,8 @@ class BasicWriter(Transform):
             
 
         # Write the camera frame
+        #cv2.imshow('Test',data[self.frame_to_output])
+        #cv2.waitKey(0)
         self.video_writer.write(data[self.frame_to_output])
 
         # Add the output data
@@ -430,6 +432,19 @@ class ZerosLike(Transform):
     
     def process(self, data):
         data[self.output] = np.zeros_like(data[self.reference])
+        return data
+
+class ConcatFrames(Transform):
+    def __init__(self, config):
+        self.inputs = config["inputs"]
+        self.output = config["output"]
+    
+    def process(self, data):
+        inputs = []
+        for i in range(len(self.inputs)):
+            inputs.append(data[self.inputs[i]])
+        
+        data[self.output] = np.concatenate(tuple(inputs),1)
         return data
 
 class Require(Transform):
@@ -593,13 +608,20 @@ class ChannelMax(Transform):
     def __init__(self, config):
         self.input = config["input"]
         self.output = config["output"]
+        self.max = config["max"]
+        self.min = config["min"]
 
     def process(self, data):
         # Above threshold -> max
         # Below threshold -> min
-        max_data = np.amax(data[self.input], 2)
-        for i in range(3):
-            data[self.output][:,:,i] = max_data
+        data[self.output] = data[self.input]
+
+        mask = data[self.output] > self.max
+        data[self.output][mask] = self.max
+
+        mask = data[self.output] < self.min
+        data[self.output][mask] = self.min
+
         return data
 
 class NormalizePerChannel(Transform):
@@ -1192,3 +1214,16 @@ class PrintDistribution(Transform):
     def finalize(self):
         # Print the distribution
         pp.pprint(self.counts)
+
+
+class ToIntFrame(Transform):
+    def __init__(self, config):
+        self.input = config["input"]
+        self.output = config["output"]        
+
+    def process(self, data):
+        #pp.pprint(np.max(data[self.input]*255))
+        data[self.output] = (data[self.input]*255).astype('uint8')
+
+        # Continue
+        return data

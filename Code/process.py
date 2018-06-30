@@ -76,6 +76,10 @@ class Processor():
                     self.transforms.append( transforms.DrawPolygon(transform) )
                 elif transform["name"] == "zeros_like":
                     self.transforms.append( transforms.ZerosLike(transform) )
+                elif transform["name"] == "concat_frames":
+                    self.transforms.append( transforms.ConcatFrames(transform) )
+                elif transform["name"] == "to_int_frame":
+                    self.transforms.append( transforms.ToIntFrame(transform) )
                 else:
                     print("ERROR: Transform not found '%s'" % transform["name"])
         

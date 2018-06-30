@@ -1,0 +1,1 @@
+python ..\..\Code\process.py process segment_extract_table_from_videos.json
