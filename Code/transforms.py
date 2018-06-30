@@ -1125,7 +1125,9 @@ class RunModel(Transform):
     def __init__(self, config):
         self.input = config["input"]
         self.output = config["output"]
-        self.model = keras.models.load_model(config["model_file"])
+        self.model = keras.models.load_model(config["model_file"], compile=False)
+        self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+        
 
     def process(self, data):
         # Process the frame in the ML model
