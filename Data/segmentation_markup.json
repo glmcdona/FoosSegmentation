@@ -1,0 +1,79 @@
+{
+    "transforms":
+    [
+        {
+            "name":"single_frame_loader_middle",
+            "endswith":"",
+            "folder":".\\Raw\\RawMatchesContinuous\\",
+            "output":"frame",
+            "value_loader":
+            {
+                "json":
+                {
+                    "constant":true,
+                    "values_to_load":["rod_lines", "score_lines", "table"]
+                }
+            },
+            "repeats":[]
+        },
+        {
+            "name":"require",
+            "input":"frame"
+        },
+        {
+            "name":"require",
+            "input":"rod_lines",
+            "condition":"does not exist"
+        },
+        {
+            "name":"line_selection",
+            "input_frame":"frame",
+            "title":"Rod Selection",
+            "line_names":["Close goalie","Close defense","Close offense","Close 5-bar","Far 5-bar","Far offense","Far defense","Far goalie"],
+            "output_lines":"rod_lines"
+        },
+        {
+            "name":"draw_lines",
+            "input_frame":"frame",
+            "input_lines":"rod_lines",
+            "width":2,
+            "color":[255,0,0]
+        },
+        {
+            "name":"line_selection",
+            "input_frame":"frame",
+            "title":"Score Bar Selections",
+            "line_names":["Score bar far","Games bar far","Score bar close","Games bar close"],
+            "output_lines":"score_lines"
+        },
+        {
+            "name":"draw_lines",
+            "input_frame":"frame",
+            "input_lines":"rod_lines",
+            "width":2,
+            "color":[0,255,0]
+        },
+        {
+            "name":"polygon_selection",
+            "input_frame":"frame",
+            "title":"Table Selection",
+            "num_vertices":4,
+            "output":"table"
+        },
+        {
+            "name":"draw_polygon",
+            "input_frame":"frame",
+            "input_polygon":"table",
+            "fill":true,
+            "width":1,
+            "color":[0,0,255]
+        },
+        {
+            "name":"json_writer",
+            "folder":".\\Raw\\RawMatchesContinuous\\",
+            "filename_prefix_inputname":"filename_noext",
+            "values_per_chunk":1,
+            "values_to_output":["rod_lines", "score_lines", "table"]
+        }
+    ]
+}

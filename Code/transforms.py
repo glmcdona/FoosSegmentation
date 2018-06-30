@@ -423,6 +423,15 @@ class BasicWriterNamed(Transform):
         
         pass
 
+class ZerosLike(Transform):
+    def __init__(self, config):
+        self.reference = config["reference"]
+        self.output = config["output"]
+    
+    def process(self, data):
+        data[self.output] = np.zeros_like(data[self.reference])
+        return data
+
 class Require(Transform):
     def __init__(self, config):
         self.input = config["input"]
@@ -527,7 +536,6 @@ class OneHot(Transform):
         data[self.output] = result
 
         return data
-
 
 class Resize(Transform):
     def __init__(self, config):
@@ -1034,13 +1042,84 @@ class LineSelection(Transform):
             # Add the two points that define the line
             data[self.output_lines].append([left, right])
             cv2.destroyWindow(line)
-            cv2.line(data[self.input_frame], left, right, [0,0,0])
+            cv2.line(data[self.input_frame], left, right, [0,255,0])
         
         # Continue
         return data
 
 
+class PolygonSelection(Transform):
+    def __init__(self, config):
+        self.input_frame = config["input_frame"]
+        self.title = config["title"]
+        self.output = config["output"]
+        self.num_vertices = config["num_vertices"]
 
+    def process(self, data):
+        # Show the frame
+        global refPt
+
+        data[self.output] = np.zeros((self.num_vertices, 2),dtype=int)
+        for i in range(self.num_vertices):
+            # Select this vertex
+            cv2.namedWindow(self.title)
+            cv2.setMouseCallback(self.title, click_callback)
+            cv2.imshow(self.title, data[self.input_frame])
+
+            # Select the point
+            refPt = (0,0)
+            key = 0
+            while refPt == (0,0) and key != ord('q'):
+                key = cv2.waitKey(1) & 0xFF
+            
+            if refPt == (0,0) or key == ord('q'):
+                print("Cancelled selection of vertex")
+                cv2.destroyWindow(self.title)
+                return None
+            vertex = refPt
+
+            data[self.output][i,:] = vertex
+
+            # Draw the point
+            cv2.circle(data[self.input_frame], vertex, 3, (0,255,255))
+            #cv2.fillConvexPoly(data[self.input_frame], data[self.output][0:i,:], (0,255,255))
+        
+        # Continue
+        return data
+
+
+class DrawLines(Transform):
+    def __init__(self, config):
+        self.input_frame = config["input_frame"]
+        self.input_lines = config["input_lines"]
+        self.width = config["width"]
+        self.color = config["color"]
+
+    def process(self, data):
+        # Show the frame
+        for line in data[self.input_lines]:
+            cv2.line(data[self.input_frame], tuple(line[0]), tuple(line[1]), self.color, self.width)
+        
+        # Continue
+        return data
+
+class DrawPolygon(Transform):
+    def __init__(self, config):
+        self.input_frame = config["input_frame"]
+        self.input_polygon = config["input_polygon"]
+        self.fill = config["fill"]
+        self.width = config["width"]
+        self.color = config["color"]
+
+    def process(self, data):
+        # Show the frame
+        if self.fill:
+            cv2.fillConvexPoly(data[self.input_frame], np.array(data[self.input_polygon]), self.color)
+        else:
+            cv2.fillConvexPoly(data[self.input_frame], np.array(data[self.input_polygon]), self.color)
+        
+        # Continue
+        return data
 
 class RunModel(Transform):
     def __init__(self, config):

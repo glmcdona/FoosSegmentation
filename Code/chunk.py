@@ -5,6 +5,7 @@ import types
 import json
 import codecs
 import threading
+import pprint as pp
 
 class Chunk():
     def __init__(self, video_root, video_filename, value_loader_config, repeats):
@@ -104,6 +105,10 @@ class ValueLoader_Json():
     def __init__(self, video_root, filename, value_loader_config):
         # Parse the filename according to the config as the value
         self.filename_noext = filename.split(".")[0]
+        self.constant = False
+        if "constant" in value_loader_config:
+            self.constant = value_loader_config["constant"]
+
         json_file = os.path.join(video_root, self.filename_noext + ".json")
         if os.path.isfile(json_file):
             data = codecs.open(json_file, 'r', encoding='utf-8').read()
@@ -112,10 +117,16 @@ class ValueLoader_Json():
             self.data = {}
 
     def get_values(self, index):
-        # Constant set of values depending on filename
-        values = {}
-        for name, array in self.data.items():
-            values[name] = array[index]
+        if self.constant:
+            # Constant set of values for this loader
+            values = {}
+            for name, array in self.data.items():
+                values[name] = array[0]
+        else:
+            # Decode per the value for this index
+            values = {}
+            for name, array in self.data.items():
+                values[name] = array[index]
         
         values["filename_noext"] = self.filename_noext
         return values

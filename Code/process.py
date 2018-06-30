@@ -68,6 +68,14 @@ class Processor():
                     self.transforms.append( transforms.Threshold(transform) )
                 elif transform["name"] == "channel_max":
                     self.transforms.append( transforms.ChannelMax(transform) )
+                elif transform["name"] == "polygon_selection":
+                    self.transforms.append( transforms.PolygonSelection(transform) )
+                elif transform["name"] == "draw_lines":
+                    self.transforms.append( transforms.DrawLines(transform) )
+                elif transform["name"] == "draw_polygon":
+                    self.transforms.append( transforms.DrawPolygon(transform) )
+                elif transform["name"] == "zeros_like":
+                    self.transforms.append( transforms.ZerosLike(transform) )
                 else:
                     print("ERROR: Transform not found '%s'" % transform["name"])
         
