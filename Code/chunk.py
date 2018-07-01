@@ -121,7 +121,10 @@ class ValueLoader_Json():
             # Constant set of values for this loader
             values = {}
             for name, array in self.data.items():
-                values[name] = array[0]
+                if len(array) > 0:
+                    values[name] = array[0]
+                else:
+                    values[name] = []
         else:
             # Decode per the value for this index
             values = {}

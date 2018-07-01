@@ -33,13 +33,13 @@ class Transform():
         return None
 
 
-# python -m pip install azure-cognitiveservices-search-imagesearch
-from azure.cognitiveservices.search.imagesearch import ImageSearchAPI
-from azure.cognitiveservices.search.imagesearch.models import ImageType, ImageAspect, ImageInsightModule
-from msrest.authentication import CognitiveServicesCredentials
 
 class BingImageLoader(Transform):
     def __init__(self, config, subscription_key):
+        # python -m pip install azure-cognitiveservices-search-imagesearch
+        from azure.cognitiveservices.search.imagesearch import ImageSearchAPI
+        from azure.cognitiveservices.search.imagesearch.models import ImageType, ImageAspect, ImageInsightModule
+        from msrest.authentication import CognitiveServicesCredentials
         self.queries = config["queries"]
         self.output = config["output"]
         #self.queries = ["inside"]
@@ -1216,10 +1216,11 @@ class DrawPolygon(Transform):
 
     def process(self, data):
         # Show the frame
-        if self.fill:
-            cv2.fillConvexPoly(data[self.input_frame], np.array(data[self.input_polygon]), self.color)
-        else:
-            cv2.fillConvexPoly(data[self.input_frame], np.array(data[self.input_polygon]), self.color)
+        if len(data[self.input_polygon]) > 0:
+            if self.fill:
+                cv2.fillConvexPoly(data[self.input_frame], np.array(data[self.input_polygon]), self.color)
+            else:
+                cv2.fillConvexPoly(data[self.input_frame], np.array(data[self.input_polygon]), self.color)
         
         # Continue
         return data

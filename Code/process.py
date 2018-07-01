@@ -13,7 +13,7 @@ import json
 #data_path  = ".\\..\\Recorder\\FeatureSetBuilder\\Experiments\\experiment4.config"
 
 class Processor():
-    def __init__(self, config, subscription_key):
+    def __init__(self, config, subscription_key=""):
         # Load the config
         with open(config) as json_data:
             config = json.load(json_data)
