@@ -8,6 +8,9 @@ import math
 from chunk import *
 from keras.preprocessing.image import *
 import keras
+from PIL import Image
+from io import BytesIO
+import requests
 
 class Transform():
 
@@ -28,6 +31,84 @@ class Transform():
 
     def length(self):
         return None
+
+
+# python -m pip install azure-cognitiveservices-search-imagesearch
+from azure.cognitiveservices.search.imagesearch import ImageSearchAPI
+from azure.cognitiveservices.search.imagesearch.models import ImageType, ImageAspect, ImageInsightModule
+from msrest.authentication import CognitiveServicesCredentials
+
+class BingImageLoader(Transform):
+    def __init__(self, config, subscription_key):
+        self.queries = config["queries"]
+        self.output = config["output"]
+        #self.queries = ["inside"]
+
+        self.client = ImageSearchAPI(CognitiveServicesCredentials(subscription_key))
+        
+        self.images = []
+        for query in self.queries:
+            print("Querying images for %s..." % query)
+            offset = 0
+            for i in range(config["search_pages"]):
+                image_results = self.client.images.search(
+                    query=query,
+                    image_type=config["image_type"],
+                    license=config["license"],
+                    minHeight=config["min_height"],
+                    maxHeight=config["max_height"],
+                    minWidth=config["min_width"],
+                    maxWidth=config["max_width"],
+                    count=config["search_count"],
+                    offset=offset
+                )
+                #pp.pprint(image_results)
+                
+                if image_results.value:
+                    print("Found %i results for %s." % (len(image_results.value), query))
+                    if len(image_results.value) <= 0:
+                        break
+                    else:
+                        offset += len(image_results.value)
+                        for result in image_results.value:
+                            if result.thumbnail_url not in self.images:
+                                self.images.append(result.thumbnail_url)
+                else:
+                    print("Couldn't find image results!")
+
+        if config["random"]:
+            random.shuffle(self.images)
+
+        self.index = 0
+        
+        print("Loaded %i image URLs to download." % len(self.images))
+    
+    def stop_all_on_return_null(self):
+        return True
+
+    def length(self):
+        return len(self.images)
+    
+    def process(self, data):
+        retry = 5
+        while retry > 0:
+            try:
+                image_data = requests.get(self.images[self.index], timeout=2.0)
+                break
+            except:
+                retry -= 1
+        
+        if retry == 0:
+            return None
+        
+        self.index += 1
+        image_data.raise_for_status()
+        image = np.array(Image.open(BytesIO(image_data.content)))
+        data[self.output] = image
+        return data
+    
+    def finalize(self):
+        self.index = 0
 
 class VideoLoaderRandom(Transform):
 

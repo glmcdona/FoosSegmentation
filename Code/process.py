@@ -13,7 +13,7 @@ import json
 #data_path  = ".\\..\\Recorder\\FeatureSetBuilder\\Experiments\\experiment4.config"
 
 class Processor():
-    def __init__(self, config):
+    def __init__(self, config, subscription_key):
         # Load the config
         with open(config) as json_data:
             config = json.load(json_data)
@@ -80,6 +80,8 @@ class Processor():
                     self.transforms.append( transforms.ConcatFrames(transform) )
                 elif transform["name"] == "to_int_frame":
                     self.transforms.append( transforms.ToIntFrame(transform) )
+                elif transform["name"] == "bing_image_loader":
+                    self.transforms.append( transforms.BingImageLoader(transform, subscription_key) )
                 else:
                     print("ERROR: Transform not found '%s'" % transform["name"])
         
@@ -132,7 +134,10 @@ class Processor():
 if __name__ == "__main__":
     if( sys.argv[1] == "process" ):
         print("Processing experiment config frames from path %s." % (sys.argv[2]))
-        exp = Processor(sys.argv[2])
+        subscription_key = ""
+        if len(sys.argv) > 3:
+            subscription_key = sys.argv[3]
+        exp = Processor(sys.argv[2], subscription_key)
         exp.process_all()
     else:
         print("ERROR: Invalid command %s. Must be play or process." % sys.argv[1])
