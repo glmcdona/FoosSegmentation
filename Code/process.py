@@ -8,12 +8,15 @@ import pprint
 pp = pprint.PrettyPrinter(depth=6)
 import sys
 import json
+import keras
 
 # Settings
 #data_path  = ".\\..\\Recorder\\FeatureSetBuilder\\Experiments\\experiment4.config"
 
 class Processor():
     def __init__(self, config, subscription_key=""):
+        keras.backend.clear_session()
+
         # Load the config
         with open(config) as json_data:
             config = json.load(json_data)
@@ -74,12 +77,18 @@ class Processor():
                     self.transforms.append( transforms.DrawLines(transform) )
                 elif transform["name"] == "draw_polygon":
                     self.transforms.append( transforms.DrawPolygon(transform) )
+                elif transform["name"] == "draw_contours":
+                    self.transforms.append( transforms.DrawContours(transform) )
                 elif transform["name"] == "zeros_like":
                     self.transforms.append( transforms.ZerosLike(transform) )
                 elif transform["name"] == "concat_frames":
                     self.transforms.append( transforms.ConcatFrames(transform) )
                 elif transform["name"] == "to_int_frame":
                     self.transforms.append( transforms.ToIntFrame(transform) )
+                elif transform["name"] == "contours_find":
+                    self.transforms.append( transforms.ContoursFind(transform) )
+                elif transform["name"] == "contours_to_frames":
+                    self.transforms.append( transforms.ContoursToFrames(transform) )
                 elif transform["name"] == "bing_image_loader":
                     self.transforms.append( transforms.BingImageLoader(transform, subscription_key) )
                 else:

@@ -7,7 +7,9 @@ import random
 import math
 from chunk import *
 from keras.preprocessing.image import *
+import tensorflow as tf
 import keras
+from keras import backend as k
 from PIL import Image
 from io import BytesIO
 import requests
@@ -1225,8 +1227,31 @@ class DrawPolygon(Transform):
         # Continue
         return data
 
+class DrawContours(Transform):
+    def __init__(self, config):
+        self.input_frame = config["input_frame"]
+        self.input_contours = config["input_contours"]
+        self.fill = config["fill"]
+        self.width = config["width"]
+        self.color = config["color"]
+
+    def process(self, data):
+        # Show the frame
+        if len(data[self.input_contours]) > 0:
+            cv2.drawContours(data[self.input_frame], data[self.input_contours], -1, self.color, self.width)
+        
+        # Continue
+        return data
+
 class RunModel(Transform):
     def __init__(self, config):
+        ###################################
+        # TensorFlow wizardry
+        tf_config = tf.ConfigProto()
+        tf_config.gpu_options.allow_growth = True
+        tf_config.gpu_options.per_process_gpu_memory_fraction = 0.3
+        k.tensorflow_backend.set_session(tf.Session(config=tf_config))
+        ###################################
         self.input = config["input"]
         self.output = config["output"]
         self.model = keras.models.load_model(config["model_file"], compile=False)
@@ -1297,6 +1322,138 @@ class PrintDistribution(Transform):
         # Print the distribution
         pp.pprint(self.counts)
 
+
+class ContoursFind(Transform):
+    def __init__(self, config):
+        self.input = config["input"]
+        self.output_frame = config["output_frame"]
+        self.output_contours = config["output_contours"]
+        self.threshold = config["threshold"]
+        self.channel = config["channel"]
+        self.largest = config["largest"]
+        self.convert_to_convex_hull = config["convert_to_convex_hull"]
+        self.convert_to_bounding_rectangle = config["convert_to_bounding_rectangle"]
+        self.convert_to_rotated_bounding_rectangle = config["convert_to_rotated_bounding_rectangle"]
+        self.contour_min_area = config["contour_min_area_pixels"]
+
+    def process(self, data):
+        ret, thresh = cv2.threshold(data[self.input][:,:,self.channel], self.threshold, 255, 0)
+        thresh = thresh.astype('uint8')
+        
+        im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        #pp.pprint(contours)
+        #cv2.imshow('Test',im2)
+        #cv2.waitKey(0)
+
+        # Output the resulting frame
+        if self.output_frame is not None:
+            data[self.output_frame] = im2
+
+        # Filter and output the contours
+        filtered_contours = []
+        filtered_areas = []
+        for contour in contours:
+            if self.convert_to_convex_hull:
+                contour = cv2.convexHull(contour)
+            
+            area = cv2.contourArea(contour)
+            #pp.pprint(area)
+            if area > self.contour_min_area:
+                if self.convert_to_rotated_bounding_rectangle:
+                    rect = cv2.minAreaRect(contour)
+                    box = cv2.boxPoints(rect)
+                    filtered_contours.append(box)
+                    filtered_areas.append(area)
+                elif self.convert_to_bounding_rectangle:
+                    filtered_contours.append(cv2.boundingRect(contour))
+                    filtered_areas.append(area)
+                else:
+                    filtered_contours.append(contour)
+                    filtered_areas.append(area)
+        
+        sorted_contours = [x for _, x in sorted(zip(filtered_areas,filtered_contours), key=lambda pair: pair[0], reverse=True)]
+
+        data[self.output_contours] = sorted_contours[0:self.largest]
+        #pp.pprint(data[self.output_contours])
+
+        # Continue
+        return data
+
+class ContoursToFrames(Transform):
+    def __init__(self, config):
+        self.input_contours = config["input_contours"]
+        self.input_frame = config["input_frame"]
+
+        self.output_frames = config["output_frames"]
+        self.output_num_frames = config["output_num_frames"]
+        self.output_frame_width = config["output_frame_width"]
+        self.output_frame_height = config["output_frame_height"]
+
+    def process(self, data):
+        # Cuts out and resizes regions from a frame specified by an array of contours into an
+        # array of output frames.
+
+        data[self.output_num_frames] = 0
+        for i in range(len(self.output_frames)):
+            if len(data[self.input_contours]) > i:
+                # Process this contour
+
+                # Example:
+                # https://stackoverflow.com/questions/39493195/cropping-an-image-with-respect-to-co-ordinates-selected
+
+                # Create the cropped rectangular image with no stretching
+
+                # Create the four corner points:
+                topLeft = None
+                topRight = None
+                bottomLeft = None
+                bottomRight = None
+                #pp.pprint(data[self.input_contours][i])
+                for point in data[self.input_contours][i]:
+                    point = point[0]
+                    if topLeft is None:
+                        # Set initial points
+                        topLeft = point
+                        topRight = point
+                        bottomLeft = point
+                        bottomRight = point
+                    else:
+                        # Update the four-corner points
+                        if (topLeft[0] - point[0]) + (topLeft[1] - point[1]) > 0:
+                            topLeft = point
+                        if (-topRight[0] + point[0]) + (topRight[1] - point[1]) > 0:
+                            topRight = point
+                        if (bottomLeft[0] - point[0]) + (-bottomLeft[1] + point[1]) > 0:
+                            bottomLeft = point
+                        if (-bottomRight[0] + point[0]) + (-bottomRight[1] + point[1]) > 0:
+                            bottomRight = point
+
+                # Now create the cropped rectangle by mapping these four points to a rectangle
+                width = np.linalg.norm(topLeft-topRight)
+                height = np.linalg.norm(topLeft-bottomLeft)
+
+                #pp.pprint(topLeft)
+                #pp.pprint(topRight)
+                #pp.pprint(bottomLeft)
+                #pp.pprint(bottomRight)
+                #pp.pprint((width,height))
+
+                transform = cv2.getPerspectiveTransform(np.asarray([topLeft, topRight, bottomRight, bottomLeft]).astype(np.float32), np.asarray([[0, 0], [width-1, 0], [width-1, height-1], [0, height-1]]).astype(np.float32))
+                result = cv2.warpPerspective(data[self.input_frame],transform,(int(width),int(height)))
+                result = cv2.resize(result, (self.output_frame_width, self.output_frame_height), interpolation=cv2.INTER_AREA)
+                #cv2.imshow('Test',result)
+                #cv2.waitKey(0)
+
+                #pp.pprint(data[self.input_frame].shape)
+                #pp.pprint(result.shape)
+                
+                data[self.output_frames[i]] = result
+                
+
+                data[self.output_num_frames] += 1
+        
+        return data
+        
 
 class ToIntFrame(Transform):
     def __init__(self, config):
