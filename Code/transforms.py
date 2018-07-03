@@ -5,10 +5,14 @@ pp = pprint.PrettyPrinter(depth=6)
 import os
 import random
 import math
+import bisect
 from chunk import *
-from keras.preprocessing.image import *
+
+
 import tensorflow as tf
 import keras
+from keras.preprocessing.image import *
+from old_keras_image import *
 from keras import backend as k
 from PIL import Image
 from io import BytesIO
@@ -651,6 +655,21 @@ class Resize(Transform):
 
         return data
 
+class ResizeToOther(Transform):
+    def __init__(self, config):
+        self.input = config["input"]
+        self.output = config["output"]
+        self.size_reference = config["size_reference"]
+        self.resize_mode = config["resize_mode"]
+
+    def process(self, data):
+        # Resize
+        result = cv2.resize(data[self.input], (data[self.size_reference].shape[1], data[self.size_reference].shape[0]), interpolation=cv2.INTER_AREA)
+        
+        # Write the result
+        data[self.output] = result
+
+        return data
 
 class FrameDifference(Transform):
     def __init__(self, config):
@@ -706,6 +725,22 @@ class ChannelMax(Transform):
         data[self.output][mask] = self.min
 
         return data
+
+class SelectRandom(Transform):
+    def __init__(self, config):
+        self.inputs = config["inputs"]
+        self.weights = config["weights"]
+        self.bases = np.cumsum(self.weights)
+        self.output = config["output"]
+
+    def process(self, data):
+        selection = random.randint(0, len(self.inputs) * sum(self.weights))
+
+        # Find the corresponding input
+        idx = bisect.bisect(self.bases, selection) - 1
+        data[self.output] = data[self.inputs[idx]]
+        
+        return data 
 
 class NormalizePerChannel(Transform):
     def __init__(self, config):
@@ -1066,6 +1101,9 @@ class ShowFrame(Transform):
     def __init__(self, config):
         self.input = config["input"]
         self.display = config["display"]
+        self.wait_for_key = False
+        if "wait_for_key" in config:
+            self.wait_for_key = config["wait_for_key"]
         cv2.namedWindow(self.display)
 
     def process(self, data):
@@ -1073,7 +1111,10 @@ class ShowFrame(Transform):
         cv2.imshow(self.display,data[self.input])
 
         # Keystroke to quit or pause
-        key = cv2.waitKey(1) & 0xFF
+        if self.wait_for_key:
+            key = cv2.waitKey() & 0xFF
+        else:
+            key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             data = None
         elif key == ord(' '):
@@ -1378,6 +1419,32 @@ class ContoursFind(Transform):
 
         # Continue
         return data
+
+class MergeTwoFramesByPolygon(Transform):
+    def __init__(self, config):
+        self.background_frame = config["background_frame"]
+        self.frame_to_add = config["frame_to_add"]
+        self.output = config["output"]
+        self.region_to_add = config["region_to_add"]
+    
+    def process(self, data):
+        # Build the mask of the region we want to copy
+        mask = np.full((data[self.frame_to_add].shape[0], data[self.frame_to_add].shape[1]), 0, dtype=np.uint8)  # mask is only 
+        if len(data[self.region_to_add]) > 0:
+            #pp.pprint(data[self.region_to_add])
+            cv2.fillConvexPoly(mask, np.array(data[self.region_to_add]), 255)
+        
+        # Build the inverse mask
+        inverse_mask = cv2.bitwise_not(mask)
+
+        # Build the two results from the masked images
+        data[self.output] = np.add(
+                    cv2.bitwise_and(data[self.background_frame],data[self.background_frame],mask = inverse_mask),
+                    cv2.bitwise_and(data[self.frame_to_add],data[self.frame_to_add],mask = mask)
+        )
+        
+        return data
+
 
 class ContoursToFrames(Transform):
     def __init__(self, config):

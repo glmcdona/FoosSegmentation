@@ -31,6 +31,8 @@ class Processor():
                     self.transforms.append( transforms.OneHot(transform) )
                 elif transform["name"] == "resize":
                     self.transforms.append( transforms.Resize(transform) )
+                elif transform["name"] == "resize_to_other":
+                    self.transforms.append( transforms.ResizeToOther(transform) )
                 elif transform["name"] == "add_random_number":
                     self.transforms.append( transforms.AddRandomNumber(transform))
                 elif transform["name"] == "normalize_channels":
@@ -89,8 +91,12 @@ class Processor():
                     self.transforms.append( transforms.ContoursFind(transform) )
                 elif transform["name"] == "contours_to_frames":
                     self.transforms.append( transforms.ContoursToFrames(transform) )
+                elif transform["name"] == "select_random":
+                    self.transforms.append( transforms.SelectRandom(transform) )
                 elif transform["name"] == "bing_image_loader":
                     self.transforms.append( transforms.BingImageLoader(transform, subscription_key) )
+                elif transform["name"] == "merge_two_frames_by_polygon":
+                    self.transforms.append( transforms.MergeTwoFramesByPolygon(transform) )
                 else:
                     print("ERROR: Transform not found '%s'" % transform["name"])
         
