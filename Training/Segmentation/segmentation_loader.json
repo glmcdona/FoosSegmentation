@@ -38,7 +38,7 @@
                     "repeat_times":10
                 }
             ]
-        },      
+        },
         {
             "name":"require",
             "input":"frame"
@@ -55,11 +55,17 @@
             "resize_mode":"stretch"  
         },
         {
+            "name":"contours_adjust",
+            "input_contours":"table",
+            "output_contours":"table_larger",
+            "random_size_multiplier":[1.0, 1.40]
+        },
+        {
             "name":"merge_two_frames_by_polygon",
             "background_frame":"random_image",
             "frame_to_add":"frame",
             "output":"frame_modified_background",
-            "region_to_add":"table"
+            "region_to_add":"table_larger"
         },
         {
             "name":"select_random",
@@ -79,6 +85,32 @@
             "fill":true,
             "width":1,
             "color":[255,0,0]
+        },
+        {
+            "name":"draw_lines",
+            "input_frame":"segmentation",
+            "input_lines":"score_lines",
+            "width":10,
+            "color":[0,255,0]
+        },
+        {
+            "name":"draw_lines",
+            "input_frame":"segmentation",
+            "input_lines":"rod_lines",
+            "width":10,
+            "color":[255,0,255]
+        },
+        {
+            "name":"zeros_like",
+            "reference":"frame",
+            "output":"segmentation_empty"
+        },
+        {
+            "name":"merge_two_frames_by_polygon",
+            "background_frame":"segmentation_empty",
+            "frame_to_add":"segmentation",
+            "output":"segmentation",
+            "region_to_add":"table_larger"
         },
         {
             "name":"resize",

@@ -89,6 +89,8 @@ class Processor():
                     self.transforms.append( transforms.ToIntFrame(transform) )
                 elif transform["name"] == "contours_find":
                     self.transforms.append( transforms.ContoursFind(transform) )
+                elif transform["name"] == "contours_adjust":
+                    self.transforms.append( transforms.ContoursAdjust(transform) )
                 elif transform["name"] == "contours_to_frames":
                     self.transforms.append( transforms.ContoursToFrames(transform) )
                 elif transform["name"] == "select_random":

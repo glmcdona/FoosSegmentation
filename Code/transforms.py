@@ -525,13 +525,16 @@ class ConcatFrames(Transform):
     def __init__(self, config):
         self.inputs = config["inputs"]
         self.output = config["output"]
+        self.axis = 1
+        if "axis" in config:
+            self.axis = config["axis"]
     
     def process(self, data):
         inputs = []
         for i in range(len(self.inputs)):
             inputs.append(data[self.inputs[i]])
         
-        data[self.output] = np.concatenate(tuple(inputs),1)
+        data[self.output] = np.concatenate(tuple(inputs),self.axis)
         return data
 
 class Require(Transform):
@@ -1416,6 +1419,62 @@ class ContoursFind(Transform):
 
         data[self.output_contours] = sorted_contours[0:self.largest]
         #pp.pprint(data[self.output_contours])
+
+        # Continue
+        return data
+
+class ContoursAdjust(Transform):
+    def __init__(self, config):
+        self.input = config["input_contours"]
+        self.output = config["output_contours"]
+        
+        self.size_multiplier = None
+        if "size_multiplier" in config:
+            self.size_multiplier = config["size_multiplier"]
+        
+        self.random_size_multiplier = None
+        if "random_size_multiplier" in config:
+            self.random_size_multiplier = config["random_size_multiplier"]
+
+        #self.size_multiplier_vertical = config["size_multiplier_vertical"]
+        #self.size_multiplier_horizontal = config["size_multiplier_horizontal"]
+
+    def process(self, data):
+        result = []
+        
+        for contour in data[self.input]:
+            # Find centre
+            M = cv2.moments(contour)
+            cx = int(M['m10']/M['m00'])
+            cy = int(M['m01']/M['m00'])
+            c = ((cx, cy))
+
+            # Decide on "Vertical" and "Horizontal" axes based on building a box
+            #rect = cv2.minAreaRect(contour)
+            #angle = rect[2]
+            #d_v = np.array( [[np.sin(np.deg2rad(angle)), np.cos(np.deg2rad(angle))]] )
+            #d_h = np.array( [[np.sin(np.deg2rad(angle-90)), np.cos(np.deg2rad(angle-90))]] )
+
+            # Now scale and move each point
+            result = []
+            for i in range(contour.shape[0]):
+                if self.random_size_multiplier is not None:
+                    self.size_multiplier = random.uniform(self.random_size_multiplier[0], self.random_size_multiplier[1])
+                diff = (contour[i,:,:] - c) * self.size_multiplier
+                contour[i,:,:] = c + diff.astype('int32')
+
+                #pp.pprint(d_v*10)
+                #pp.pprint((d_v*10).astype('uint8'))
+                #pp.pprint(d_h*10)
+                #pp.pprint((d_h*10).astype('uint8'))
+                #pp.pprint(d_h)
+                #pp.pprint(contour)
+                #pp.pprint(((10 * d_v) + (10 * d_h)).astype('uint8'))
+                #contour[i,:,:] = c + diff + ((-10*d_v) + (0*d_h)).astype('int32')
+            
+            result.append(contour)
+
+        data[self.output] = result
 
         # Continue
         return data
