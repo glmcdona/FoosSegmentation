@@ -1,41 +1,24 @@
 {
     "transforms":
     [
+        {   "_comment_": "-------- Load the paired (frame_step=2) frame+segmentation videos --------"},
         {
             "name":"random_video_loader",
+            "frame_step":2,
             "exclusions":[],
-            "endswith":"images_0.mp4",
-            "folder":".\\..\\..\\Data\\Raw\\RawMatchesContinuous\\",
-            "output":"random_image",
+            "endswith":"Copy.avi",
+            "folder":".\\..\\..\\Data\\Processed\\Segmentation\\",
+            "outputs":["frame","segmentation"],
             "random":true,
             "value_loader":
             {
-            },
-            "repeats":
-            [
-            ]
-        },
-        {
-            "name":"random_video_loader",
-            "endswith":".mp4",
-            "folder":".\\..\\..\\Data\\Raw\\RawMatchesContinuous\\",
-            "output":"frame",
-            "exclusions":[],
-            "random":true,
-            "value_loader":
-            {
-                "json":
-                {
-                    "constant":true,
-                    "values_to_load":["rod_lines", "score_lines", "table"]
-                }
             },
             "repeats":
             [
                 {
                     "match_type":"partial_match_filename",
-                    "value_match":"images",
-                    "repeat_times":10
+                    "value_match":"_basic_",
+                    "repeat_times":2
                 }
             ]
         },
@@ -45,87 +28,10 @@
         },
         {
             "name":"require",
-            "input":"random_image"
+            "input":"segmentation"
         },
-        {
-            "name":"resize_to_other",
-            "input":"random_image",
-            "output":"random_image",
-            "size_reference":"frame",
-            "resize_mode":"stretch"  
-        },
-        {
-            "name":"contours_adjust",
-            "input_contours":"table",
-            "output_contours":"table_larger",
-            "random_size_multiplier":[1.0, 1.40]
-        },
-        {
-            "name":"merge_two_frames_by_polygon",
-            "background_frame":"random_image",
-            "frame_to_add":"frame",
-            "output":"frame_modified_background",
-            "region_to_add":"table_larger"
-        },
-        {
-            "name":"select_random",
-            "inputs":["frame_modified_background","frame"],
-            "weights":[1,3],
-            "output":"frame"
-        },
-        {
-            "name":"zeros_like",
-            "reference":"frame",
-            "output":"segmentation"
-        },
-        {
-            "name":"draw_polygon",
-            "input_frame":"segmentation",
-            "input_polygon":"table",
-            "fill":true,
-            "width":1,
-            "color":[255,0,0]
-        },
-        {
-            "name":"draw_lines",
-            "input_frame":"segmentation",
-            "input_lines":"score_lines",
-            "width":10,
-            "color":[0,255,0]
-        },
-        {
-            "name":"draw_lines",
-            "input_frame":"segmentation",
-            "input_lines":"rod_lines",
-            "width":10,
-            "color":[255,0,255]
-        },
-        {
-            "name":"zeros_like",
-            "reference":"frame",
-            "output":"segmentation_empty"
-        },
-        {
-            "name":"merge_two_frames_by_polygon",
-            "background_frame":"segmentation_empty",
-            "frame_to_add":"segmentation",
-            "output":"segmentation",
-            "region_to_add":"table_larger"
-        },
-        {
-            "name":"resize",
-            "input":"frame",
-            "output":"frame",
-            "size":[256,512],
-            "resize_mode":"stretch"  
-        },
-        {
-            "name":"resize",
-            "input":"segmentation",
-            "output":"segmentation",
-            "size":[256,512],
-            "resize_mode":"stretch"  
-        },
+
+        {   "_comment_": "-------- Randomize the frame and segmentation map the exact same way --------"},
         {
             "name":"add_random_number",
             "output":"seed"
@@ -172,6 +78,8 @@
             "vertical_flip":false,
             "horizontal_flip":true
         },
+
+        {   "_comment_": "-------- Normalize both images on range 0.0 to 1.0 per channel --------"},
         {
             "name":"normalize_channels",
             "input":"frame",
@@ -185,6 +93,8 @@
             "output":"segmentation",
             "max":1.0,
             "min":0.0
-        }
+        },
+
+        {   "_comment_": "-------- Result: 'frame' has training input, 'segmentation' has training output. --------"}
     ]
 }

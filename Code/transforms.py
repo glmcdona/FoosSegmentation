@@ -124,6 +124,11 @@ class VideoLoaderRandom(Transform):
 
         self.output = None
         self.num_frames = 0
+
+        self.stop_at_end = True
+        if "stop_at_end" in config:
+            self.stop_at_end = config["stop_at_end"]
+
         if "output" in config:
             self.output = config["output"]
             self.num_frames = 1
@@ -133,6 +138,10 @@ class VideoLoaderRandom(Transform):
             self.outputs = config["outputs"]
             self.num_frames = len(self.outputs)
         
+        self.frame_step = 1
+        if "frame_step" in config:
+            self.frame_step = config["frame_step"]
+
         if "repeats" not in config:
             config["repeats"] = None
 
@@ -185,7 +194,8 @@ class VideoLoaderRandom(Transform):
             else:
                 self.distribution[group] += self.chunks[i].length
             
-            for j in range(0 + self.frame_skipfirst_per_video, min([self.chunks[i].length - self.num_frames + 1, self.frame_limit_per_video + self.frame_skipfirst_per_video - self.num_frames + 1])):
+            # Add the frame arrays to the load_sequence
+            for j in range(0 + self.frame_skipfirst_per_video, min([self.chunks[i].length - self.num_frames + 1, self.frame_limit_per_video + self.frame_skipfirst_per_video - self.num_frames + 1]), self.frame_step):
                 self.load_sequence.append([i, range(j, j+self.num_frames)])
         
         if "take_first_x_percent" in config:
@@ -204,14 +214,23 @@ class VideoLoaderRandom(Transform):
         print(self.distribution)
 
     def stop_all_on_return_null(self):
-        return True
+        return self.stop_at_end
 
     def length(self):
         return len(self.load_sequence)
+
+    def reset(self):
+        # Reshuffle
+        if self.random:
+            random.shuffle(self.load_sequence)
+        
+        # Move back tot he start
+        self.frame_index = 0
     
     def process(self, data):
         # Get the next frame along with the data
         if self.frame_index >= len(self.load_sequence):
+            self.reset()
             return None
         
         chunk_index, indices = self.load_sequence[self.frame_index]
@@ -372,7 +391,13 @@ class BasicWriter(Transform):
         self.folder = config["folder"]
         self.filename_prefix = config["filename_prefix"]
         self.frames_per_chunk = config["frames_per_chunk"]
-        self.frame_to_output = config["frame_to_output"]
+
+        
+        self.frames_to_output = None
+        if "frames_to_output" in config:
+            self.frames_to_output = config["frames_to_output"]
+        if "frame_to_output" in config:
+            self.frames_to_output = [config["frame_to_output"]]
 
         self.values_to_output = []
         if "values_to_output" in config:
@@ -399,7 +424,7 @@ class BasicWriter(Transform):
             self.current_chunk = chunk_number
 
             # Load the frame size
-            shape = data[self.frame_to_output].shape
+            shape = data[self.frames_to_output[0]].shape
 
             # Create the writer
             fourcc = cv2.VideoWriter_fourcc(*'XVID') #cv2.VideoWriter_fourcc(*'DIVX')
@@ -409,7 +434,8 @@ class BasicWriter(Transform):
         # Write the camera frame
         #cv2.imshow('Test',data[self.frame_to_output])
         #cv2.waitKey(0)
-        self.video_writer.write(data[self.frame_to_output])
+        for frame in self.frames_to_output:
+            self.video_writer.write(data[frame])
 
         # Add the output data
         for key, value in data.items():
@@ -735,6 +761,9 @@ class SelectRandom(Transform):
         self.weights = config["weights"]
         self.bases = np.cumsum(self.weights)
         self.output = config["output"]
+        self.output_index = None
+        if "output_index" in config:
+            self.output_index = config["output_index"]
 
     def process(self, data):
         selection = random.randint(0, len(self.inputs) * sum(self.weights))
@@ -742,6 +771,10 @@ class SelectRandom(Transform):
         # Find the corresponding input
         idx = bisect.bisect(self.bases, selection) - 1
         data[self.output] = data[self.inputs[idx]]
+
+        # Output the corresponding index
+        if self.output_index is not None:
+            data[self.output_index] = selection
         
         return data 
 
@@ -1423,6 +1456,46 @@ class ContoursFind(Transform):
         # Continue
         return data
 
+class PolygonToContours(Transform):
+    def __init__(self, config):
+        self.input = config["input_polygon"]
+        self.output = config["output_contours"]
+
+    def process(self, data):
+        # Contours:
+        #   List of tuples of size (N,1,2) int32s
+        result = [ np.zeros( (len(data[self.input]), 1, 2)).astype('int32') ]
+
+        for i in range(len(data[self.input])):
+            result[0][i,:,:] = np.array(data[self.input][i]).astype('int32')
+
+        data[self.output] = result
+        #pp.pprint(result)
+        #pp.pprint(result[0].shape)
+        return data
+
+
+class FirstContourToPolygon(Transform):
+    def __init__(self, config):
+        self.input = config["input_contours"]
+        self.output = config["output_polygon"]
+
+    def process(self, data):
+        # Polygon:
+        #   List of [x,y]
+        # Contours:
+        #   List of tuples of size (N,1,2) int32s
+        result = []
+        if len(data[self.input]) > 0:
+            contour = data[self.input][0]
+            for i in range(contour.shape[0]):
+                result.append([contour[i,0,0],contour[i,0,1]])
+
+        data[self.output] = result
+        #pp.pprint(result)
+        #pp.pprint(result[0].shape)
+        return data
+
 class ContoursAdjust(Transform):
     def __init__(self, config):
         self.input = config["input_contours"]
@@ -1443,36 +1516,37 @@ class ContoursAdjust(Transform):
         result = []
         
         for contour in data[self.input]:
-            # Find centre
-            M = cv2.moments(contour)
-            cx = int(M['m10']/M['m00'])
-            cy = int(M['m01']/M['m00'])
-            c = ((cx, cy))
+            if len(contour) > 0:
+                # Find centre
+                M = cv2.moments(contour)
+                cx = int(M['m10']/M['m00'])
+                cy = int(M['m01']/M['m00'])
+                c = ((cx, cy))
 
-            # Decide on "Vertical" and "Horizontal" axes based on building a box
-            #rect = cv2.minAreaRect(contour)
-            #angle = rect[2]
-            #d_v = np.array( [[np.sin(np.deg2rad(angle)), np.cos(np.deg2rad(angle))]] )
-            #d_h = np.array( [[np.sin(np.deg2rad(angle-90)), np.cos(np.deg2rad(angle-90))]] )
+                # Decide on "Vertical" and "Horizontal" axes based on building a box
+                #rect = cv2.minAreaRect(contour)
+                #angle = rect[2]
+                #d_v = np.array( [[np.sin(np.deg2rad(angle)), np.cos(np.deg2rad(angle))]] )
+                #d_h = np.array( [[np.sin(np.deg2rad(angle-90)), np.cos(np.deg2rad(angle-90))]] )
 
-            # Now scale and move each point
-            result = []
-            for i in range(contour.shape[0]):
-                if self.random_size_multiplier is not None:
-                    self.size_multiplier = random.uniform(self.random_size_multiplier[0], self.random_size_multiplier[1])
-                diff = (contour[i,:,:] - c) * self.size_multiplier
-                contour[i,:,:] = c + diff.astype('int32')
+                # Now scale and move each point
+                result = []
+                for i in range(contour.shape[0]):
+                    if self.random_size_multiplier is not None:
+                        self.size_multiplier = random.uniform(self.random_size_multiplier[0], self.random_size_multiplier[1])
+                    diff = (contour[i,:,:] - c) * self.size_multiplier
+                    contour[i,:,:] = c + diff.astype('int32')
 
-                #pp.pprint(d_v*10)
-                #pp.pprint((d_v*10).astype('uint8'))
-                #pp.pprint(d_h*10)
-                #pp.pprint((d_h*10).astype('uint8'))
-                #pp.pprint(d_h)
-                #pp.pprint(contour)
-                #pp.pprint(((10 * d_v) + (10 * d_h)).astype('uint8'))
-                #contour[i,:,:] = c + diff + ((-10*d_v) + (0*d_h)).astype('int32')
-            
-            result.append(contour)
+                    #pp.pprint(d_v*10)
+                    #pp.pprint((d_v*10).astype('uint8'))
+                    #pp.pprint(d_h*10)
+                    #pp.pprint((d_h*10).astype('uint8'))
+                    #pp.pprint(d_h)
+                    #pp.pprint(contour)
+                    #pp.pprint(((10 * d_v) + (10 * d_h)).astype('uint8'))
+                    #contour[i,:,:] = c + diff + ((-10*d_v) + (0*d_h)).astype('int32')
+                
+                result.append(contour)
 
         data[self.output] = result
 
