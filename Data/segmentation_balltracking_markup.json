@@ -1,0 +1,43 @@
+{
+    "transforms":
+    [
+        { "_comment_":"-------- Load random frames ---------" },
+        {
+            "name":"random_video_loader",
+            "endswith":"",
+            "folder":".\\Raw\\RawMatches\\",
+            "output":"frame",
+            "exclusions":[],
+            "random":true,
+            "value_loader":
+            {
+            }
+        },
+        {
+            "name":"require",
+            "input":"frame"
+        },
+
+        { "_comment_":"-------- Ask the user to tag where the ball is ---------" },
+        {
+            "name":"point_selection",
+            "input_frame":"frame",
+            "title":"Click the center of the ball or 'n' for no ball visible or 'u' for undecided (not clear or bad view).",
+            "output":"ball"
+        },
+        {
+            "name":"require",
+            "input":"ball"
+        },
+
+        { "_comment_":"-------- Write the resulting frame with the ball tag ---------" },
+        {
+            "name":"basic_writer",
+            "frame_to_output":"frame",
+            "values_to_output":["ball"],
+            "folder":".\\Processed\\BallSegmentation\\",
+            "filename_prefix":"ball_tags",
+            "frames_per_chunk":100
+        }
+    ]
+}

@@ -16,6 +16,7 @@ import keras
 class Processor():
     def __init__(self, config, subscription_key=""):
         keras.backend.clear_session()
+        sys.setrecursionlimit(100000)
 
         # Load the config
         with open(config) as json_data:
@@ -69,6 +70,8 @@ class Processor():
                         self.transforms.append( transforms.ShowFrame(transform) )
                     elif transform["name"] == "line_selection":
                         self.transforms.append( transforms.LineSelection(transform) )
+                    elif transform["name"] == "point_selection":
+                        self.transforms.append( transforms.PointSelection(transform) )
                     elif transform["name"] == "print_distribution":
                         self.transforms.append( transforms.PrintDistribution(transform) )
                     elif transform["name"] == "frame_difference":
