@@ -761,15 +761,25 @@ class SelectRandom(Transform):
         self.weights = config["weights"]
         self.bases = np.cumsum(self.weights)
         self.output = config["output"]
+        self.p_seed = None
+        if "p_seed" in config:
+            self.p_seed = config["p_seed"]
         self.output_index = None
         if "output_index" in config:
             self.output_index = config["output_index"]
 
     def process(self, data):
-        selection = random.randint(0, len(self.inputs) * sum(self.weights))
+        if self.p_seed is not None:
+            random.seed( data[self.p_seed] )
+        selection = random.randint(0, sum(self.weights))
+        
 
         # Find the corresponding input
         idx = bisect.bisect(self.bases, selection) - 1
+        #pp.pprint(self.bases)
+        #pp.pprint("%s,%s" %(selection,idx))
+        #exit()
+        
         data[self.output] = data[self.inputs[idx]]
 
         # Output the corresponding index
