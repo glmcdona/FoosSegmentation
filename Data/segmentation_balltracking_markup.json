@@ -36,7 +36,7 @@
             "frame_to_output":"frame",
             "values_to_output":["ball"],
             "folder":".\\Processed\\BallSegmentation\\",
-            "filename_prefix":"ball_tags",
+            "filename_prefix":"ball_tags_more",
             "frames_per_chunk":100
         }
     ]
