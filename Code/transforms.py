@@ -1280,6 +1280,52 @@ class PolygonSelection(Transform):
         return data
 
 
+
+class PointSelection(Transform):
+    def __init__(self, config):
+        self.input_frame = config["input_frame"]
+        self.title = config["title"]
+        self.output = config["output"]
+
+    def process(self, data):
+        
+        global refPt
+
+        # Show the frame
+        cv2.namedWindow(self.title)
+        cv2.setMouseCallback(self.title, click_callback)
+        cv2.imshow(self.title, data[self.input_frame])
+
+        # Select the point
+        refPt = (0,0)
+        key = 0
+        while refPt == (0,0) and key != ord('q'):
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q') or key == ord('n') or key == ord('u'):
+                break
+        
+        if refPt == (0,0):
+            if key == ord('q'):
+                print("Cancelled selection of vertex")
+                cv2.destroyWindow(self.title)
+                return None
+            elif key == ord('n'):
+                # No ball visible
+                print("No ball visible")
+                data[self.output] = ()
+                return data
+            elif key == ord('u'):
+                # Undecided/bad frame
+                return data # no output
+        
+        data[self.output] = refPt
+        
+        # Continue
+        return data
+    
+    def stop_all_on_return_null(self):
+        return True
+
 class DrawLines(Transform):
     def __init__(self, config):
         self.input_frame = config["input_frame"]
