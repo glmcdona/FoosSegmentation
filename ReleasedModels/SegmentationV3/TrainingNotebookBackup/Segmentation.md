@@ -66,16 +66,9 @@ importlib.reload(process)
 # Load the data and frames, and add the normalizer
 training = process.Processor("segmentation_loader.json")
 validation = process.Processor("segmentation_loader.json")
-#validation = process.Processor("data_loader_validation.json")
-#output_names = ["g1","d1","o1","f1","f2","o2","d2","g2","-2"]
 ```
 
-    Creating transform: random_video_loader
-    Adding folder '.\..\..\Data\Raw\RawMatchesContinuous\'
-    '.\..\..\Data\Raw\RawMatchesContinuous\images_0.mp4': 3040 frames found.
-    Loaded 3040 frames in loader.
-    Distribution:
-    {'images_.mp': 3040}
+    -------- Load foosball table images with segmentation --------
     Creating transform: random_video_loader
     Adding folder '.\..\..\Data\Raw\RawMatchesContinuous\'
     '.\..\..\Data\Raw\RawMatchesContinuous\Bart9_1.mp4': 3430 frames found.
@@ -106,27 +99,25 @@ validation = process.Processor("segmentation_loader.json")
     '.\..\..\Data\Raw\RawMatchesContinuous\Worlds2_1.mp4': 931 frames found.
     Loaded 148985 frames in loader.
     Distribution:
-    {'images_.mp': 30400, 'Bart_.mp': 49898, 'Tko_.mp': 35318, 'Nationals_.mp': 2913, 'Texas_.mp': 29525, 'Worlds_.mp': 931}
+    {'Tko_.mp': 35318, 'Worlds_.mp': 931, 'Bart_.mp': 49898, 'Nationals_.mp': 2913, 'images_.mp': 30400, 'Texas_.mp': 29525}
     Creating transform: require
-    Creating transform: require
-    Creating transform: resize_to_other
-    Creating transform: merge_two_frames_by_polygon
-    Creating transform: select_random
+    -------- Draw the segmentation --------
     Creating transform: zeros_like
     Creating transform: draw_polygon
+    Creating transform: draw_lines
+    Creating transform: draw_lines
+    -------- Downsize --------
     Creating transform: resize
     Creating transform: resize
+    -------- Randomize the frame and segmentation map the exact same way --------
     Creating transform: add_random_number
     Creating transform: randomize_frame
     Creating transform: randomize_frame
+    -------- Normalize both images on range 0.0 to 1.0 per channel --------
     Creating transform: normalize_channels
     Creating transform: normalize_channels
-    Creating transform: random_video_loader
-    Adding folder '.\..\..\Data\Raw\RawMatchesContinuous\'
-    '.\..\..\Data\Raw\RawMatchesContinuous\images_0.mp4': 3040 frames found.
-    Loaded 3040 frames in loader.
-    Distribution:
-    {'images_.mp': 3040}
+    -------- Result: 'frame' has training input, 'segmentation' has training output. --------
+    -------- Load foosball table images with segmentation --------
     Creating transform: random_video_loader
     Adding folder '.\..\..\Data\Raw\RawMatchesContinuous\'
     '.\..\..\Data\Raw\RawMatchesContinuous\Bart9_1.mp4': 3430 frames found.
@@ -157,21 +148,24 @@ validation = process.Processor("segmentation_loader.json")
     '.\..\..\Data\Raw\RawMatchesContinuous\Worlds2_1.mp4': 931 frames found.
     Loaded 148985 frames in loader.
     Distribution:
-    {'images_.mp': 30400, 'Bart_.mp': 49898, 'Tko_.mp': 35318, 'Nationals_.mp': 2913, 'Texas_.mp': 29525, 'Worlds_.mp': 931}
+    {'Tko_.mp': 35318, 'Worlds_.mp': 931, 'Bart_.mp': 49898, 'Nationals_.mp': 2913, 'images_.mp': 30400, 'Texas_.mp': 29525}
     Creating transform: require
-    Creating transform: require
-    Creating transform: resize_to_other
-    Creating transform: merge_two_frames_by_polygon
-    Creating transform: select_random
+    -------- Draw the segmentation --------
     Creating transform: zeros_like
     Creating transform: draw_polygon
+    Creating transform: draw_lines
+    Creating transform: draw_lines
+    -------- Downsize --------
     Creating transform: resize
     Creating transform: resize
+    -------- Randomize the frame and segmentation map the exact same way --------
     Creating transform: add_random_number
     Creating transform: randomize_frame
     Creating transform: randomize_frame
+    -------- Normalize both images on range 0.0 to 1.0 per channel --------
     Creating transform: normalize_channels
     Creating transform: normalize_channels
+    -------- Result: 'frame' has training input, 'segmentation' has training output. --------
     
 
 
@@ -260,20 +254,20 @@ for k in range(10):
     (256, 1024, 3)
     
 
+
+![png](output_3_15.png)
+
+
+    (256, 512, 3)
+    (256, 1024, 3)
+    
+
     IOPub data rate exceeded.
     The notebook server will temporarily stop sending output
     to the client in order to avoid crashing it.
     To change this limit, set the config variable
     `--NotebookApp.iopub_data_rate_limit`.
     
-
-    (256, 512, 3)
-    (256, 1024, 3)
-    
-
-
-![png](output_3_17.png)
-
 
 
 ```python
@@ -331,22 +325,15 @@ def TrainBatchGen(batch_size, training):
     while True:
         # Build the next batch
         batch_frames = np.zeros(shape=(batch_size, 256, 512, 3), dtype=np.float32)
-        batch_segmentations = np.zeros(shape=(batch_size, 256, 512, 1), dtype=np.float32)
+        batch_segmentations = np.zeros(shape=(batch_size, 256, 512, 3), dtype=np.float32)
         for i in range(batch_size):
             (frame, segmentation) = next(gen)
             batch_frames[i,:,:,:] = frame
             batch_segmentations[i,:,:,0] = segmentation[:,:,0]
+            batch_segmentations[i,:,:,1] = 5*segmentation[:,:,1] # Weight score markers 5x
+            batch_segmentations[i,:,:,2] = 2*segmentation[:,:,2] # Weight rod lines 2x
             
-        
-        #pp.pprint("Yielding batch")
-        #pp.pprint(batch_outputs)
         yield (batch_frames, batch_segmentations)
-        #pp.pprint("Yielded batch")
-
-    
-    
-        
-    
 
 ```
 
@@ -363,9 +350,7 @@ def plot_validate(generator, model, count, name):
 
     for i in range(5):
         # View the first set
-        output_predicted_epanded = np.concatenate((outputs_predicted[i], outputs_predicted[i], outputs_predicted[i]),2)
-        output_true_expanded = np.concatenate((outputs_true[i], outputs_true[i], outputs_true[i]),2)
-        inputs = np.concatenate((frames[i], output_true_expanded, output_predicted_epanded),1)
+        inputs = np.concatenate((frames[i], outputs_true[i], outputs_predicted[i]),1)
 
         fig, ax = plt.subplots(figsize=(45, 8))
         h = plt.imshow(threshold(inputs))
@@ -375,11 +360,6 @@ def plot_validate(generator, model, count, name):
 
 
 #plot_validate(TrainBatchGen(batch_size, validation), frame_prediction_model, 5, "Epoch validation results %i" % epoch)
-
-
-#def mean_squared_error_weighted(y_true, y_pred):
-#    return K.mean(K.square(y_pred[:,:,:,1] - y_true[:,:,:,1]), axis=-1)
-
 ```
 
 
@@ -559,8 +539,152 @@ x = Conv2D(cnn_kernel_count, (3, 3),
            padding = "same",
            activation = "relu",)(x)
 
+
+
+
+
+
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+res0 = x
+
+x = MaxPooling2D((1, 2))(x)
+
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+res1 = x
+
+x = MaxPooling2D((2, 2))(x)
+
+
+
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+res2 = x
+x = MaxPooling2D((2, 2))(x)
+
+
+
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+res3 = x
+x = MaxPooling2D((2, 2))(x)
+
+
+
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+res4 = x
+x = MaxPooling2D((2, 2))(x)
+
+
+
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+res5 = x
+x = MaxPooling2D((2, 2))(x)
+
+
+# Start the upsampling and residual joining
+
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+
+# Create the upsampling stages, feeding residual from frame1
+x = UpSampling2D(size=(2, 2), data_format=None)(x)
+#res5 = Cropping2D(cropping=(((0, 0), (1, 0))), data_format=None)(res4_b)
+x = keras.layers.concatenate([x, res5])
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+
+x = UpSampling2D(size=(2, 2), data_format=None)(x)
+#res5 = Cropping2D(cropping=(((0, 0), (1, 0))), data_format=None)(res4_b)
+x = keras.layers.concatenate([x, res4])
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+
+x = UpSampling2D(size=(2, 2), data_format=None)(x)
+#res5 = Cropping2D(cropping=(((0, 0), (1, 0))), data_format=None)(res4_b)
+x = keras.layers.concatenate([x, res3])
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+
+x = UpSampling2D(size=(2, 2), data_format=None)(x)
+#res5 = Cropping2D(cropping=(((0, 0), (1, 0))), data_format=None)(res4_b)
+x = keras.layers.concatenate([x, res2])
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+
+x = UpSampling2D(size=(2, 2), data_format=None)(x)
+#res5 = Cropping2D(cropping=(((0, 0), (1, 0))), data_format=None)(res4_b)
+x = keras.layers.concatenate([x, res1])
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+
+x = UpSampling2D(size=(1, 2), data_format=None)(x)
+#res5 = Cropping2D(cropping=(((0, 0), (1, 0))), data_format=None)(res4_b)
+x = keras.layers.concatenate([x, res0])
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+x = Conv2D(cnn_kernel_count, (3, 3),
+           padding = "same",
+           activation = "relu",)(x)
+
+
+
+
+
 # RGB output as three channels
-x = Conv2D(1, (1, 1),
+x = Conv2D(3, (1, 1),
            padding = "same",
            activation = "relu",)(x)
 
@@ -686,10 +810,104 @@ MODELS_FNAME = '.\\Goalie3Frames\\models_%i.h5'
     ____________________________________________________________________________________________________
     conv2d_26 (Conv2D)               (None, 256, 512, 40)  14440       conv2d_25[0][0]                  
     ____________________________________________________________________________________________________
-    conv2d_27 (Conv2D)               (None, 256, 512, 1)   41          conv2d_26[0][0]                  
+    conv2d_27 (Conv2D)               (None, 256, 512, 40)  14440       conv2d_26[0][0]                  
+    ____________________________________________________________________________________________________
+    conv2d_28 (Conv2D)               (None, 256, 512, 40)  14440       conv2d_27[0][0]                  
+    ____________________________________________________________________________________________________
+    max_pooling2d_7 (MaxPooling2D)   (None, 256, 256, 40)  0           conv2d_28[0][0]                  
+    ____________________________________________________________________________________________________
+    conv2d_29 (Conv2D)               (None, 256, 256, 40)  14440       max_pooling2d_7[0][0]            
+    ____________________________________________________________________________________________________
+    conv2d_30 (Conv2D)               (None, 256, 256, 40)  14440       conv2d_29[0][0]                  
+    ____________________________________________________________________________________________________
+    max_pooling2d_8 (MaxPooling2D)   (None, 128, 128, 40)  0           conv2d_30[0][0]                  
+    ____________________________________________________________________________________________________
+    conv2d_31 (Conv2D)               (None, 128, 128, 40)  14440       max_pooling2d_8[0][0]            
+    ____________________________________________________________________________________________________
+    conv2d_32 (Conv2D)               (None, 128, 128, 40)  14440       conv2d_31[0][0]                  
+    ____________________________________________________________________________________________________
+    max_pooling2d_9 (MaxPooling2D)   (None, 64, 64, 40)    0           conv2d_32[0][0]                  
+    ____________________________________________________________________________________________________
+    conv2d_33 (Conv2D)               (None, 64, 64, 40)    14440       max_pooling2d_9[0][0]            
+    ____________________________________________________________________________________________________
+    conv2d_34 (Conv2D)               (None, 64, 64, 40)    14440       conv2d_33[0][0]                  
+    ____________________________________________________________________________________________________
+    max_pooling2d_10 (MaxPooling2D)  (None, 32, 32, 40)    0           conv2d_34[0][0]                  
+    ____________________________________________________________________________________________________
+    conv2d_35 (Conv2D)               (None, 32, 32, 40)    14440       max_pooling2d_10[0][0]           
+    ____________________________________________________________________________________________________
+    conv2d_36 (Conv2D)               (None, 32, 32, 40)    14440       conv2d_35[0][0]                  
+    ____________________________________________________________________________________________________
+    max_pooling2d_11 (MaxPooling2D)  (None, 16, 16, 40)    0           conv2d_36[0][0]                  
+    ____________________________________________________________________________________________________
+    conv2d_37 (Conv2D)               (None, 16, 16, 40)    14440       max_pooling2d_11[0][0]           
+    ____________________________________________________________________________________________________
+    conv2d_38 (Conv2D)               (None, 16, 16, 40)    14440       conv2d_37[0][0]                  
+    ____________________________________________________________________________________________________
+    max_pooling2d_12 (MaxPooling2D)  (None, 8, 8, 40)      0           conv2d_38[0][0]                  
+    ____________________________________________________________________________________________________
+    conv2d_39 (Conv2D)               (None, 8, 8, 40)      14440       max_pooling2d_12[0][0]           
+    ____________________________________________________________________________________________________
+    conv2d_40 (Conv2D)               (None, 8, 8, 40)      14440       conv2d_39[0][0]                  
+    ____________________________________________________________________________________________________
+    up_sampling2d_7 (UpSampling2D)   (None, 16, 16, 40)    0           conv2d_40[0][0]                  
+    ____________________________________________________________________________________________________
+    concatenate_7 (Concatenate)      (None, 16, 16, 80)    0           up_sampling2d_7[0][0]            
+                                                                       conv2d_38[0][0]                  
+    ____________________________________________________________________________________________________
+    conv2d_41 (Conv2D)               (None, 16, 16, 40)    28840       concatenate_7[0][0]              
+    ____________________________________________________________________________________________________
+    conv2d_42 (Conv2D)               (None, 16, 16, 40)    14440       conv2d_41[0][0]                  
+    ____________________________________________________________________________________________________
+    up_sampling2d_8 (UpSampling2D)   (None, 32, 32, 40)    0           conv2d_42[0][0]                  
+    ____________________________________________________________________________________________________
+    concatenate_8 (Concatenate)      (None, 32, 32, 80)    0           up_sampling2d_8[0][0]            
+                                                                       conv2d_36[0][0]                  
+    ____________________________________________________________________________________________________
+    conv2d_43 (Conv2D)               (None, 32, 32, 40)    28840       concatenate_8[0][0]              
+    ____________________________________________________________________________________________________
+    conv2d_44 (Conv2D)               (None, 32, 32, 40)    14440       conv2d_43[0][0]                  
+    ____________________________________________________________________________________________________
+    up_sampling2d_9 (UpSampling2D)   (None, 64, 64, 40)    0           conv2d_44[0][0]                  
+    ____________________________________________________________________________________________________
+    concatenate_9 (Concatenate)      (None, 64, 64, 80)    0           up_sampling2d_9[0][0]            
+                                                                       conv2d_34[0][0]                  
+    ____________________________________________________________________________________________________
+    conv2d_45 (Conv2D)               (None, 64, 64, 40)    28840       concatenate_9[0][0]              
+    ____________________________________________________________________________________________________
+    conv2d_46 (Conv2D)               (None, 64, 64, 40)    14440       conv2d_45[0][0]                  
+    ____________________________________________________________________________________________________
+    up_sampling2d_10 (UpSampling2D)  (None, 128, 128, 40)  0           conv2d_46[0][0]                  
+    ____________________________________________________________________________________________________
+    concatenate_10 (Concatenate)     (None, 128, 128, 80)  0           up_sampling2d_10[0][0]           
+                                                                       conv2d_32[0][0]                  
+    ____________________________________________________________________________________________________
+    conv2d_47 (Conv2D)               (None, 128, 128, 40)  28840       concatenate_10[0][0]             
+    ____________________________________________________________________________________________________
+    conv2d_48 (Conv2D)               (None, 128, 128, 40)  14440       conv2d_47[0][0]                  
+    ____________________________________________________________________________________________________
+    up_sampling2d_11 (UpSampling2D)  (None, 256, 256, 40)  0           conv2d_48[0][0]                  
+    ____________________________________________________________________________________________________
+    concatenate_11 (Concatenate)     (None, 256, 256, 80)  0           up_sampling2d_11[0][0]           
+                                                                       conv2d_30[0][0]                  
+    ____________________________________________________________________________________________________
+    conv2d_49 (Conv2D)               (None, 256, 256, 40)  28840       concatenate_11[0][0]             
+    ____________________________________________________________________________________________________
+    conv2d_50 (Conv2D)               (None, 256, 256, 40)  14440       conv2d_49[0][0]                  
+    ____________________________________________________________________________________________________
+    up_sampling2d_12 (UpSampling2D)  (None, 256, 512, 40)  0           conv2d_50[0][0]                  
+    ____________________________________________________________________________________________________
+    concatenate_12 (Concatenate)     (None, 256, 512, 80)  0           up_sampling2d_12[0][0]           
+                                                                       conv2d_28[0][0]                  
+    ____________________________________________________________________________________________________
+    conv2d_51 (Conv2D)               (None, 256, 512, 40)  28840       concatenate_12[0][0]             
+    ____________________________________________________________________________________________________
+    conv2d_52 (Conv2D)               (None, 256, 512, 40)  14440       conv2d_51[0][0]                  
+    ____________________________________________________________________________________________________
+    conv2d_53 (Conv2D)               (None, 256, 512, 3)   123         conv2d_52[0][0]                  
     ====================================================================================================
-    Total params: 448,561
-    Trainable params: 448,561
+    Total params: 910,483
+    Trainable params: 910,483
     Non-trainable params: 0
     ____________________________________________________________________________________________________
     
@@ -698,6 +916,7 @@ MODELS_FNAME = '.\\Goalie3Frames\\models_%i.h5'
 ```python
 # For a multi-class classification problem
 frame_prediction_model.compile(optimizer=keras.optimizers.RMSprop(lr=0.00005),
+#frame_prediction_model.compile(optimizer=keras.optimizers.RMSprop(lr=0.0001),
 #model.compile(optimizer=keras.optimizers.adam(),
               loss='mean_squared_error',
               metrics=['mean_squared_error'])
@@ -713,7 +932,7 @@ print("Batch size %i: %i training batches, %i validation batches" % (batch_size,
 WEIGHTS_FNAME = '.\\Models\\weights_%i.hdf'
 MODELS_FNAME = '.\\Models\\models_%i.h5'
 
-for i in range(100):
+for i in range(200):
     frame_prediction_model.fit_generator(
         TrainBatchGen(batch_size, training=training),
         batches_training_per_epoch,
@@ -745,11 +964,11 @@ for i in range(100):
     Batch size 20: 200 training batches, 10 validation batches
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=1, use_multiprocessing=False, callbacks=None, initial_epoch=0, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=1, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=0, verbose=1)`
     
 
     Epoch 1/1
-    200/200 [==============================] - 779s - loss: 0.0766 - mean_squared_error: 0.0766 - val_loss: 0.0475 - val_mean_squared_error: 0.0475
+    200/200 [==============================] - 1357s - loss: 0.1281 - mean_squared_error: 0.1281 - val_loss: 0.1106 - val_mean_squared_error: 0.1106
     
 
 
@@ -768,50 +987,53 @@ for i in range(100):
 ![png](output_7_6.png)
 
 
-
-![png](output_7_7.png)
-
+    IOPub data rate exceeded.
+    The notebook server will temporarily stop sending output
+    to the client in order to avoid crashing it.
+    To change this limit, set the config variable
+    `--NotebookApp.iopub_data_rate_limit`.
+    
 
     Wrote model to .\Models\weights_1.hdf
     Epoch 2/2
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=2, use_multiprocessing=False, callbacks=None, initial_epoch=1, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=2, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=1, verbose=1)`
     
 
-    200/200 [==============================] - 772s - loss: 0.0380 - mean_squared_error: 0.0380 - val_loss: 0.0266 - val_mean_squared_error: 0.0266
+    200/200 [==============================] - 1353s - loss: 0.1100 - mean_squared_error: 0.1100 - val_loss: 0.1139 - val_mean_squared_error: 0.1139
     Wrote model to .\Models\weights_2.hdf
     Epoch 3/3
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=3, use_multiprocessing=False, callbacks=None, initial_epoch=2, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=3, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=2, verbose=1)`
     
 
-    200/200 [==============================] - 772s - loss: 0.0284 - mean_squared_error: 0.0284 - val_loss: 0.0315 - val_mean_squared_error: 0.0315
+    200/200 [==============================] - 1356s - loss: 0.0926 - mean_squared_error: 0.0926 - val_loss: 0.0893 - val_mean_squared_error: 0.0893
     Wrote model to .\Models\weights_3.hdf
     Epoch 4/4
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=4, use_multiprocessing=False, callbacks=None, initial_epoch=3, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=4, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=3, verbose=1)`
     
 
-    200/200 [==============================] - 771s - loss: 0.0223 - mean_squared_error: 0.0223 - val_loss: 0.0163 - val_mean_squared_error: 0.0163
+    200/200 [==============================] - 1355s - loss: 0.0555 - mean_squared_error: 0.0555 - val_loss: 0.0295 - val_mean_squared_error: 0.0295
     Wrote model to .\Models\weights_4.hdf
     Epoch 5/5
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=5, use_multiprocessing=False, callbacks=None, initial_epoch=4, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=5, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=4, verbose=1)`
     
 
-    200/200 [==============================] - 770s - loss: 0.0171 - mean_squared_error: 0.0171 - val_loss: 0.0108 - val_mean_squared_error: 0.0108
+    200/200 [==============================] - 1352s - loss: 0.0279 - mean_squared_error: 0.0279 - val_loss: 0.0233 - val_mean_squared_error: 0.0233
     Wrote model to .\Models\weights_5.hdf
     Epoch 6/6
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=6, use_multiprocessing=False, callbacks=None, initial_epoch=5, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=6, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=5, verbose=1)`
     
 
-    200/200 [==============================] - 771s - loss: 0.0130 - mean_squared_error: 0.0130 - val_loss: 0.0089 - val_mean_squared_error: 0.0089
+    200/200 [==============================] - 1353s - loss: 0.0229 - mean_squared_error: 0.0229 - val_loss: 0.0184 - val_mean_squared_error: 0.0184
     
 
 
@@ -838,42 +1060,42 @@ for i in range(100):
     Epoch 7/7
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=7, use_multiprocessing=False, callbacks=None, initial_epoch=6, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=7, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=6, verbose=1)`
     
 
-    200/200 [==============================] - 768s - loss: 0.0108 - mean_squared_error: 0.0108 - val_loss: 0.0054 - val_mean_squared_error: 0.0054
+    200/200 [==============================] - 1352s - loss: 0.0200 - mean_squared_error: 0.0200 - val_loss: 0.0169 - val_mean_squared_error: 0.0169
     Wrote model to .\Models\weights_7.hdf
     Epoch 8/8
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=8, use_multiprocessing=False, callbacks=None, initial_epoch=7, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=8, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=7, verbose=1)`
     
 
-    200/200 [==============================] - 770s - loss: 0.0083 - mean_squared_error: 0.0083 - val_loss: 0.0048 - val_mean_squared_error: 0.0048
+    200/200 [==============================] - 1352s - loss: 0.0176 - mean_squared_error: 0.0176 - val_loss: 0.0171 - val_mean_squared_error: 0.0171
     Wrote model to .\Models\weights_8.hdf
     Epoch 9/9
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=9, use_multiprocessing=False, callbacks=None, initial_epoch=8, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=9, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=8, verbose=1)`
     
 
-    200/200 [==============================] - 770s - loss: 0.0071 - mean_squared_error: 0.0071 - val_loss: 0.0094 - val_mean_squared_error: 0.0094
+    200/200 [==============================] - 1354s - loss: 0.0172 - mean_squared_error: 0.0172 - val_loss: 0.0137 - val_mean_squared_error: 0.0137
     Wrote model to .\Models\weights_9.hdf
     Epoch 10/10
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=10, use_multiprocessing=False, callbacks=None, initial_epoch=9, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=10, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=9, verbose=1)`
     
 
-    200/200 [==============================] - 770s - loss: 0.0062 - mean_squared_error: 0.0062 - val_loss: 0.0064 - val_mean_squared_error: 0.0064
+    200/200 [==============================] - 1354s - loss: 0.0150 - mean_squared_error: 0.0150 - val_loss: 0.0153 - val_mean_squared_error: 0.0153
     Wrote model to .\Models\weights_10.hdf
     Epoch 11/11
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=11, use_multiprocessing=False, callbacks=None, initial_epoch=10, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=11, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=10, verbose=1)`
     
 
-    200/200 [==============================] - 764s - loss: 0.0061 - mean_squared_error: 0.0061 - val_loss: 0.0037 - val_mean_squared_error: 0.0037
+    200/200 [==============================] - 1352s - loss: 0.0140 - mean_squared_error: 0.0140 - val_loss: 0.0766 - val_mean_squared_error: 0.0766
     
 
 
@@ -900,42 +1122,42 @@ for i in range(100):
     Epoch 12/12
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=12, use_multiprocessing=False, callbacks=None, initial_epoch=11, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=12, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=11, verbose=1)`
     
 
-    200/200 [==============================] - 769s - loss: 0.0055 - mean_squared_error: 0.0055 - val_loss: 0.0037 - val_mean_squared_error: 0.0037
+    200/200 [==============================] - 1350s - loss: 0.0134 - mean_squared_error: 0.0134 - val_loss: 0.0110 - val_mean_squared_error: 0.0110
     Wrote model to .\Models\weights_12.hdf
     Epoch 13/13
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=13, use_multiprocessing=False, callbacks=None, initial_epoch=12, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=13, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=12, verbose=1)`
     
 
-    200/200 [==============================] - 771s - loss: 0.0052 - mean_squared_error: 0.0052 - val_loss: 0.0034 - val_mean_squared_error: 0.0034
+    200/200 [==============================] - 1356s - loss: 0.0125 - mean_squared_error: 0.0125 - val_loss: 0.0106 - val_mean_squared_error: 0.0106
     Wrote model to .\Models\weights_13.hdf
     Epoch 14/14
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=14, use_multiprocessing=False, callbacks=None, initial_epoch=13, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=14, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=13, verbose=1)`
     
 
-    200/200 [==============================] - 768s - loss: 0.0045 - mean_squared_error: 0.0045 - val_loss: 0.0046 - val_mean_squared_error: 0.0046
+    200/200 [==============================] - 1348s - loss: 0.0115 - mean_squared_error: 0.0115 - val_loss: 0.0105 - val_mean_squared_error: 0.0105
     Wrote model to .\Models\weights_14.hdf
     Epoch 15/15
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=15, use_multiprocessing=False, callbacks=None, initial_epoch=14, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=15, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=14, verbose=1)`
     
 
-    200/200 [==============================] - 772s - loss: 0.0045 - mean_squared_error: 0.0045 - val_loss: 0.0062 - val_mean_squared_error: 0.0062
+    200/200 [==============================] - 1351s - loss: 0.0130 - mean_squared_error: 0.0130 - val_loss: 0.0116 - val_mean_squared_error: 0.0116
     Wrote model to .\Models\weights_15.hdf
     Epoch 16/16
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=16, use_multiprocessing=False, callbacks=None, initial_epoch=15, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=16, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=15, verbose=1)`
     
 
-    200/200 [==============================] - 771s - loss: 0.0043 - mean_squared_error: 0.0043 - val_loss: 0.0051 - val_mean_squared_error: 0.0051
+    200/200 [==============================] - 1348s - loss: 0.0113 - mean_squared_error: 0.0113 - val_loss: 0.0107 - val_mean_squared_error: 0.0107
     
 
 
@@ -962,42 +1184,42 @@ for i in range(100):
     Epoch 17/17
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=17, use_multiprocessing=False, callbacks=None, initial_epoch=16, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=17, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=16, verbose=1)`
     
 
-    200/200 [==============================] - 770s - loss: 0.0035 - mean_squared_error: 0.0035 - val_loss: 0.0153 - val_mean_squared_error: 0.0153
+    200/200 [==============================] - 1348s - loss: 0.0108 - mean_squared_error: 0.0108 - val_loss: 0.0094 - val_mean_squared_error: 0.0094
     Wrote model to .\Models\weights_17.hdf
     Epoch 18/18
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=18, use_multiprocessing=False, callbacks=None, initial_epoch=17, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=18, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=17, verbose=1)`
     
 
-    200/200 [==============================] - 768s - loss: 0.0034 - mean_squared_error: 0.0034 - val_loss: 0.0021 - val_mean_squared_error: 0.0021
+    200/200 [==============================] - 1359s - loss: 0.0105 - mean_squared_error: 0.0105 - val_loss: 0.0125 - val_mean_squared_error: 0.0125
     Wrote model to .\Models\weights_18.hdf
     Epoch 19/19
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=19, use_multiprocessing=False, callbacks=None, initial_epoch=18, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=19, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=18, verbose=1)`
     
 
-    200/200 [==============================] - 767s - loss: 0.0031 - mean_squared_error: 0.0031 - val_loss: 0.0027 - val_mean_squared_error: 0.0027
+    200/200 [==============================] - 1364s - loss: 0.0113 - mean_squared_error: 0.0113 - val_loss: 0.0112 - val_mean_squared_error: 0.0112
     Wrote model to .\Models\weights_19.hdf
     Epoch 20/20
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=20, use_multiprocessing=False, callbacks=None, initial_epoch=19, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=20, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=19, verbose=1)`
     
 
-    200/200 [==============================] - 767s - loss: 0.0029 - mean_squared_error: 0.0029 - val_loss: 0.0021 - val_mean_squared_error: 0.0021
+    200/200 [==============================] - 1362s - loss: 0.0097 - mean_squared_error: 0.0097 - val_loss: 0.0118 - val_mean_squared_error: 0.0118
     Wrote model to .\Models\weights_20.hdf
     Epoch 21/21
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=21, use_multiprocessing=False, callbacks=None, initial_epoch=20, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=21, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=20, verbose=1)`
     
 
-    200/200 [==============================] - 770s - loss: 0.0028 - mean_squared_error: 0.0028 - val_loss: 0.0047 - val_mean_squared_error: 0.0047
+    200/200 [==============================] - 1365s - loss: 0.0096 - mean_squared_error: 0.0096 - val_loss: 0.0079 - val_mean_squared_error: 0.0079
     
 
 
@@ -1024,42 +1246,42 @@ for i in range(100):
     Epoch 22/22
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=22, use_multiprocessing=False, callbacks=None, initial_epoch=21, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=22, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=21, verbose=1)`
     
 
-    200/200 [==============================] - 772s - loss: 0.0027 - mean_squared_error: 0.0027 - val_loss: 0.0022 - val_mean_squared_error: 0.0022
+    200/200 [==============================] - 1370s - loss: 0.0097 - mean_squared_error: 0.0097 - val_loss: 0.0089 - val_mean_squared_error: 0.0089
     Wrote model to .\Models\weights_22.hdf
     Epoch 23/23
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=23, use_multiprocessing=False, callbacks=None, initial_epoch=22, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=23, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=22, verbose=1)`
     
 
-    200/200 [==============================] - 769s - loss: 0.0033 - mean_squared_error: 0.0033 - val_loss: 0.0014 - val_mean_squared_error: 0.0014
+    200/200 [==============================] - 1368s - loss: 0.0093 - mean_squared_error: 0.0093 - val_loss: 0.0083 - val_mean_squared_error: 0.0083
     Wrote model to .\Models\weights_23.hdf
     Epoch 24/24
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=24, use_multiprocessing=False, callbacks=None, initial_epoch=23, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=24, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=23, verbose=1)`
     
 
-    200/200 [==============================] - 767s - loss: 0.0029 - mean_squared_error: 0.0029 - val_loss: 0.0018 - val_mean_squared_error: 0.0018
+    200/200 [==============================] - 1373s - loss: 0.0092 - mean_squared_error: 0.0092 - val_loss: 0.0087 - val_mean_squared_error: 0.0087
     Wrote model to .\Models\weights_24.hdf
     Epoch 25/25
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=25, use_multiprocessing=False, callbacks=None, initial_epoch=24, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=25, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=24, verbose=1)`
     
 
-    200/200 [==============================] - 770s - loss: 0.0026 - mean_squared_error: 0.0026 - val_loss: 0.0017 - val_mean_squared_error: 0.0017
+    200/200 [==============================] - 1373s - loss: 0.0090 - mean_squared_error: 0.0090 - val_loss: 0.0093 - val_mean_squared_error: 0.0093
     Wrote model to .\Models\weights_25.hdf
     Epoch 26/26
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=26, use_multiprocessing=False, callbacks=None, initial_epoch=25, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=26, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=25, verbose=1)`
     
 
-    200/200 [==============================] - 768s - loss: 0.0027 - mean_squared_error: 0.0027 - val_loss: 0.0030 - val_mean_squared_error: 0.0030
+    200/200 [==============================] - 1374s - loss: 0.0088 - mean_squared_error: 0.0088 - val_loss: 0.0076 - val_mean_squared_error: 0.0076
     
 
 
@@ -1086,42 +1308,42 @@ for i in range(100):
     Epoch 27/27
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=27, use_multiprocessing=False, callbacks=None, initial_epoch=26, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=27, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=26, verbose=1)`
     
 
-    200/200 [==============================] - 769s - loss: 0.0024 - mean_squared_error: 0.0024 - val_loss: 0.0025 - val_mean_squared_error: 0.0025
+    200/200 [==============================] - 1373s - loss: 0.0087 - mean_squared_error: 0.0087 - val_loss: 0.0083 - val_mean_squared_error: 0.0083
     Wrote model to .\Models\weights_27.hdf
     Epoch 28/28
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=28, use_multiprocessing=False, callbacks=None, initial_epoch=27, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=28, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=27, verbose=1)`
     
 
-    200/200 [==============================] - 766s - loss: 0.0024 - mean_squared_error: 0.0024 - val_loss: 0.0013 - val_mean_squared_error: 0.0013
+    200/200 [==============================] - 1368s - loss: 0.0081 - mean_squared_error: 0.0081 - val_loss: 0.0081 - val_mean_squared_error: 0.0081
     Wrote model to .\Models\weights_28.hdf
     Epoch 29/29
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=29, use_multiprocessing=False, callbacks=None, initial_epoch=28, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=29, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=28, verbose=1)`
     
 
-    200/200 [==============================] - 772s - loss: 0.0022 - mean_squared_error: 0.0022 - val_loss: 0.0017 - val_mean_squared_error: 0.0017
+    200/200 [==============================] - 1371s - loss: 0.0093 - mean_squared_error: 0.0093 - val_loss: 0.0072 - val_mean_squared_error: 0.0072
     Wrote model to .\Models\weights_29.hdf
     Epoch 30/30
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=30, use_multiprocessing=False, callbacks=None, initial_epoch=29, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=30, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=29, verbose=1)`
     
 
-    200/200 [==============================] - 768s - loss: 0.0021 - mean_squared_error: 0.0021 - val_loss: 0.0015 - val_mean_squared_error: 0.0015
+    200/200 [==============================] - 1370s - loss: 0.0082 - mean_squared_error: 0.0082 - val_loss: 0.0078 - val_mean_squared_error: 0.0078
     Wrote model to .\Models\weights_30.hdf
     Epoch 31/31
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=31, use_multiprocessing=False, callbacks=None, initial_epoch=30, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=31, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=30, verbose=1)`
     
 
-    200/200 [==============================] - 769s - loss: 0.0019 - mean_squared_error: 0.0019 - val_loss: 0.0021 - val_mean_squared_error: 0.0021
+    200/200 [==============================] - 1372s - loss: 0.0087 - mean_squared_error: 0.0087 - val_loss: 0.0069 - val_mean_squared_error: 0.0069
     
 
 
@@ -1148,42 +1370,42 @@ for i in range(100):
     Epoch 32/32
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=32, use_multiprocessing=False, callbacks=None, initial_epoch=31, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=32, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=31, verbose=1)`
     
 
-    200/200 [==============================] - 773s - loss: 0.0022 - mean_squared_error: 0.0022 - val_loss: 0.0011 - val_mean_squared_error: 0.0011
+    200/200 [==============================] - 1369s - loss: 0.0080 - mean_squared_error: 0.0080 - val_loss: 0.0076 - val_mean_squared_error: 0.0076
     Wrote model to .\Models\weights_32.hdf
     Epoch 33/33
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=33, use_multiprocessing=False, callbacks=None, initial_epoch=32, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=33, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=32, verbose=1)`
     
 
-    200/200 [==============================] - 770s - loss: 0.0020 - mean_squared_error: 0.0020 - val_loss: 0.0022 - val_mean_squared_error: 0.0022
+    200/200 [==============================] - 1371s - loss: 0.0085 - mean_squared_error: 0.0085 - val_loss: 0.0078 - val_mean_squared_error: 0.0078
     Wrote model to .\Models\weights_33.hdf
     Epoch 34/34
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=34, use_multiprocessing=False, callbacks=None, initial_epoch=33, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=34, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=33, verbose=1)`
     
 
-    200/200 [==============================] - 772s - loss: 0.0021 - mean_squared_error: 0.0021 - val_loss: 9.8226e-04 - val_mean_squared_error: 9.8226e-04
+    200/200 [==============================] - 1369s - loss: 0.0078 - mean_squared_error: 0.0078 - val_loss: 0.0085 - val_mean_squared_error: 0.0085
     Wrote model to .\Models\weights_34.hdf
     Epoch 35/35
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=35, use_multiprocessing=False, callbacks=None, initial_epoch=34, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=35, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=34, verbose=1)`
     
 
-    200/200 [==============================] - 772s - loss: 0.0019 - mean_squared_error: 0.0019 - val_loss: 0.0013 - val_mean_squared_error: 0.0013
+    200/200 [==============================] - 1372s - loss: 0.0078 - mean_squared_error: 0.0078 - val_loss: 0.0086 - val_mean_squared_error: 0.0086
     Wrote model to .\Models\weights_35.hdf
     Epoch 36/36
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=36, use_multiprocessing=False, callbacks=None, initial_epoch=35, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=36, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=35, verbose=1)`
     
 
-    200/200 [==============================] - 766s - loss: 0.0020 - mean_squared_error: 0.0020 - val_loss: 0.0025 - val_mean_squared_error: 0.0025
+    200/200 [==============================] - 1372s - loss: 0.0077 - mean_squared_error: 0.0077 - val_loss: 0.0069 - val_mean_squared_error: 0.0069
     
 
 
@@ -1210,42 +1432,42 @@ for i in range(100):
     Epoch 37/37
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=37, use_multiprocessing=False, callbacks=None, initial_epoch=36, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=37, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=36, verbose=1)`
     
 
-    200/200 [==============================] - 770s - loss: 0.0019 - mean_squared_error: 0.0019 - val_loss: 0.0011 - val_mean_squared_error: 0.0011
+    200/200 [==============================] - 1358s - loss: 0.0077 - mean_squared_error: 0.0077 - val_loss: 0.0078 - val_mean_squared_error: 0.0078
     Wrote model to .\Models\weights_37.hdf
     Epoch 38/38
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=38, use_multiprocessing=False, callbacks=None, initial_epoch=37, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=38, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=37, verbose=1)`
     
 
-    200/200 [==============================] - 771s - loss: 0.0018 - mean_squared_error: 0.0018 - val_loss: 0.0011 - val_mean_squared_error: 0.0011
+    200/200 [==============================] - 1349s - loss: 0.0072 - mean_squared_error: 0.0072 - val_loss: 0.0082 - val_mean_squared_error: 0.0082
     Wrote model to .\Models\weights_38.hdf
     Epoch 39/39
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=39, use_multiprocessing=False, callbacks=None, initial_epoch=38, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=39, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=38, verbose=1)`
     
 
-    200/200 [==============================] - 767s - loss: 0.0019 - mean_squared_error: 0.0019 - val_loss: 8.2526e-04 - val_mean_squared_error: 8.2526e-04
+    200/200 [==============================] - 1365s - loss: 0.0073 - mean_squared_error: 0.0073 - val_loss: 0.0066 - val_mean_squared_error: 0.0066
     Wrote model to .\Models\weights_39.hdf
     Epoch 40/40
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=40, use_multiprocessing=False, callbacks=None, initial_epoch=39, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=40, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=39, verbose=1)`
     
 
-    200/200 [==============================] - 767s - loss: 0.0017 - mean_squared_error: 0.0017 - val_loss: 0.0018 - val_mean_squared_error: 0.0018
+    200/200 [==============================] - 1368s - loss: 0.0079 - mean_squared_error: 0.0079 - val_loss: 0.0072 - val_mean_squared_error: 0.0072
     Wrote model to .\Models\weights_40.hdf
     Epoch 41/41
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=41, use_multiprocessing=False, callbacks=None, initial_epoch=40, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=41, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=40, verbose=1)`
     
 
-    200/200 [==============================] - 766s - loss: 0.0017 - mean_squared_error: 0.0017 - val_loss: 0.0026 - val_mean_squared_error: 0.0026
+    200/200 [==============================] - 1366s - loss: 0.0070 - mean_squared_error: 0.0070 - val_loss: 0.0072 - val_mean_squared_error: 0.0072
     
 
 
@@ -1272,718 +1494,675 @@ for i in range(100):
     Epoch 42/42
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=42, use_multiprocessing=False, callbacks=None, initial_epoch=41, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=42, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=41, verbose=1)`
     
 
-    200/200 [==============================] - 766s - loss: 0.0016 - mean_squared_error: 0.0016 - val_loss: 0.0015 - val_mean_squared_error: 0.0015
+    200/200 [==============================] - 1347s - loss: 0.0077 - mean_squared_error: 0.0077 - val_loss: 0.0069 - val_mean_squared_error: 0.0069
     Wrote model to .\Models\weights_42.hdf
     Epoch 43/43
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=43, use_multiprocessing=False, callbacks=None, initial_epoch=42, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=43, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=42, verbose=1)`
     
 
-    200/200 [==============================] - 768s - loss: 0.0016 - mean_squared_error: 0.0016 - val_loss: 0.0011 - val_mean_squared_error: 0.0011
+    200/200 [==============================] - 1345s - loss: 0.0079 - mean_squared_error: 0.0079 - val_loss: 0.0065 - val_mean_squared_error: 0.0065
     Wrote model to .\Models\weights_43.hdf
     Epoch 44/44
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=44, use_multiprocessing=False, callbacks=None, initial_epoch=43, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=44, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=43, verbose=1)`
     
 
-    200/200 [==============================] - 769s - loss: 0.0016 - mean_squared_error: 0.0016 - val_loss: 8.0494e-04 - val_mean_squared_error: 8.0494e-04
+    200/200 [==============================] - 1351s - loss: 0.0071 - mean_squared_error: 0.0071 - val_loss: 0.0065 - val_mean_squared_error: 0.0065
     Wrote model to .\Models\weights_44.hdf
     Epoch 45/45
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=45, use_multiprocessing=False, callbacks=None, initial_epoch=44, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=45, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=44, verbose=1)`
     
 
-    200/200 [==============================] - 766s - loss: 0.0016 - mean_squared_error: 0.0016 - val_loss: 0.0010 - val_mean_squared_error: 0.0010
+    200/200 [==============================] - 1350s - loss: 0.0077 - mean_squared_error: 0.0077 - val_loss: 0.0074 - val_mean_squared_error: 0.0074
     Wrote model to .\Models\weights_45.hdf
     Epoch 46/46
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=46, use_multiprocessing=False, callbacks=None, initial_epoch=45, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=46, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=45, verbose=1)`
     
 
-    200/200 [==============================] - 767s - loss: 0.0017 - mean_squared_error: 0.0017 - val_loss: 0.0022 - val_mean_squared_error: 0.0022
+      1/200 [..............................] - ETA: 1615s - loss: 0.0044 - mean_squared_error: 0.0044
+
+
+    ---------------------------------------------------------------------------
+
+    KeyboardInterrupt                         Traceback (most recent call last)
+
+    C:\Anaconda\envs\py35\lib\site-packages\keras\engine\training.py in fit_generator(self, generator, steps_per_epoch, epochs, verbose, callbacks, validation_data, validation_steps, class_weight, max_queue_size, workers, use_multiprocessing, shuffle, initial_epoch)
+       2041                                                sample_weight=sample_weight,
+    -> 2042                                                class_weight=class_weight)
+       2043 
     
 
-
-![png](output_7_147.png)
-
-
-
-![png](output_7_148.png)
-
-
-
-![png](output_7_149.png)
-
-
-
-![png](output_7_150.png)
-
-
-
-![png](output_7_151.png)
-
-
-    Wrote model to .\Models\weights_46.hdf
-    Epoch 47/47
+    C:\Anaconda\envs\py35\lib\site-packages\keras\engine\training.py in train_on_batch(self, x, y, sample_weight, class_weight)
+       1761         self._make_train_function()
+    -> 1762         outputs = self.train_function(ins)
+       1763         if len(outputs) == 1:
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=47, use_multiprocessing=False, callbacks=None, initial_epoch=46, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\keras\backend\tensorflow_backend.py in __call__(self, inputs)
+       2272                               feed_dict=feed_dict,
+    -> 2273                               **self.session_kwargs)
+       2274         return updated[:len(self.outputs)]
     
 
-    200/200 [==============================] - 769s - loss: 0.0016 - mean_squared_error: 0.0016 - val_loss: 0.0018 - val_mean_squared_error: 0.0018
-    Wrote model to .\Models\weights_47.hdf
-    Epoch 48/48
+    C:\Anaconda\envs\py35\lib\site-packages\tensorflow\python\client\session.py in run(self, fetches, feed_dict, options, run_metadata)
+        894       result = self._run(None, fetches, feed_dict, options_ptr,
+    --> 895                          run_metadata_ptr)
+        896       if run_metadata:
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=48, use_multiprocessing=False, callbacks=None, initial_epoch=47, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\tensorflow\python\client\session.py in _run(self, handle, fetches, feed_dict, options, run_metadata)
+       1123       results = self._do_run(handle, final_targets, final_fetches,
+    -> 1124                              feed_dict_tensor, options, run_metadata)
+       1125     else:
     
 
-    200/200 [==============================] - 770s - loss: 0.0016 - mean_squared_error: 0.0016 - val_loss: 0.0023 - val_mean_squared_error: 0.0023
-    Wrote model to .\Models\weights_48.hdf
-    Epoch 49/49
+    C:\Anaconda\envs\py35\lib\site-packages\tensorflow\python\client\session.py in _do_run(self, handle, target_list, fetch_list, feed_dict, options, run_metadata)
+       1320       return self._do_call(_run_fn, self._session, feeds, fetches, targets,
+    -> 1321                            options, run_metadata)
+       1322     else:
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=49, use_multiprocessing=False, callbacks=None, initial_epoch=48, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\tensorflow\python\client\session.py in _do_call(self, fn, *args)
+       1326     try:
+    -> 1327       return fn(*args)
+       1328     except errors.OpError as e:
     
 
-    200/200 [==============================] - 769s - loss: 0.0018 - mean_squared_error: 0.0018 - val_loss: 7.9490e-04 - val_mean_squared_error: 7.9490e-04
-    Wrote model to .\Models\weights_49.hdf
-    Epoch 50/50
+    C:\Anaconda\envs\py35\lib\site-packages\tensorflow\python\client\session.py in _run_fn(session, feed_dict, fetch_list, target_list, options, run_metadata)
+       1305                                    feed_dict, fetch_list, target_list,
+    -> 1306                                    status, run_metadata)
+       1307 
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=50, use_multiprocessing=False, callbacks=None, initial_epoch=49, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    KeyboardInterrupt: 
+
+    
+    During handling of the above exception, another exception occurred:
     
 
-    200/200 [==============================] - 767s - loss: 0.0015 - mean_squared_error: 0.0015 - val_loss: 9.7762e-04 - val_mean_squared_error: 9.7762e-04
-    Wrote model to .\Models\weights_50.hdf
+    KeyboardInterrupt                         Traceback (most recent call last)
+
+    <ipython-input-8-24687c0c09af> in <module>()
+         30         validation_steps = batches_validation_per_epoch,
+         31         pickle_safe=False,
+    ---> 32         initial_epoch=epoch)
+         33 
+         34     epoch += 1
+    
+
+    C:\Anaconda\envs\py35\lib\site-packages\keras\legacy\interfaces.py in wrapper(*args, **kwargs)
+         85                 warnings.warn('Update your `' + object_name +
+         86                               '` call to the Keras 2 API: ' + signature, stacklevel=2)
+    ---> 87             return func(*args, **kwargs)
+         88         wrapper._original_function = func
+         89         return wrapper
+    
+
+    C:\Anaconda\envs\py35\lib\site-packages\keras\engine\training.py in fit_generator(self, generator, steps_per_epoch, epochs, verbose, callbacks, validation_data, validation_steps, class_weight, max_queue_size, workers, use_multiprocessing, shuffle, initial_epoch)
+       2087         finally:
+       2088             if enqueuer is not None:
+    -> 2089                 enqueuer.stop()
+       2090 
+       2091         callbacks.on_train_end()
+    
+
+    C:\Anaconda\envs\py35\lib\site-packages\keras\utils\data_utils.py in stop(self, timeout)
+        618                     thread.terminate()
+        619                 else:
+    --> 620                     thread.join(timeout)
+        621 
+        622         if self._use_multiprocessing:
+    
+
+    C:\Anaconda\envs\py35\lib\threading.py in join(self, timeout)
+       1052 
+       1053         if timeout is None:
+    -> 1054             self._wait_for_tstate_lock()
+       1055         else:
+       1056             # the behavior of a negative timeout isn't documented, but
+    
+
+    C:\Anaconda\envs\py35\lib\threading.py in _wait_for_tstate_lock(self, block, timeout)
+       1068         if lock is None:  # already determined that the C code is done
+       1069             assert self._is_stopped
+    -> 1070         elif lock.acquire(block, timeout):
+       1071             lock.release()
+       1072             self._stop()
+    
+
+    KeyboardInterrupt: 
+
+
+
+```python
+# For a multi-class classification problem
+frame_prediction_model.compile(optimizer=keras.optimizers.RMSprop(lr=0.000005),
+#frame_prediction_model.compile(optimizer=keras.optimizers.RMSprop(lr=0.0001),
+#model.compile(optimizer=keras.optimizers.adam(),
+              loss='mean_squared_error',
+              metrics=['mean_squared_error'])
+
+# Was ran on the above simple model, not pre-trained Inceptionv3 run.
+epoch = 50
+#batches_validation_per_epoch = 50
+#batches_training_per_epoch = 400
+batch_size = 20
+batches_training_per_epoch = 200
+batches_validation_per_epoch = 10
+print("Batch size %i: %i training batches, %i validation batches" % (batch_size, batches_training_per_epoch, batches_validation_per_epoch) )
+WEIGHTS_FNAME = '.\\Models\\weights_%i.hdf'
+MODELS_FNAME = '.\\Models\\models_%i.h5'
+
+for i in range(200):
+    frame_prediction_model.fit_generator(
+        TrainBatchGen(batch_size, training=training),
+        batches_training_per_epoch,
+        epochs=epoch+1,
+        verbose=1,
+        callbacks=None,
+        class_weight=None,
+        max_q_size=50,
+        workers=50,
+        validation_data=TrainBatchGen(batch_size, validation),
+        validation_steps = batches_validation_per_epoch,
+        pickle_safe=False,
+        initial_epoch=epoch)
+    
+    epoch += 1
+    
+    # Plot occasional validation data plot
+    if i % 5 == 0:
+        plot_validate(TrainBatchGen(batch_size, validation), frame_prediction_model, 50, "Epoch validation results %i" % epoch)
+    
+    # Save the model
+    frame_prediction_model.save_weights(WEIGHTS_FNAME % epoch)
+    frame_prediction_model.save(MODELS_FNAME % epoch)
+    print(("Wrote model to " + WEIGHTS_FNAME )  % epoch)
+
+
+```
+
+    Batch size 20: 200 training batches, 10 validation batches
+    
+
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=51, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=50, verbose=1)`
+    
+
     Epoch 51/51
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=51, use_multiprocessing=False, callbacks=None, initial_epoch=50, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 774s - loss: 0.0014 - mean_squared_error: 0.0014 - val_loss: 0.0047 - val_mean_squared_error: 0.0047
+    200/200 [==============================] - 1348s - loss: 0.0063 - mean_squared_error: 0.0063 - val_loss: 0.0060 - val_mean_squared_error: 0.0060
     
 
 
-![png](output_7_163.png)
+![png](output_8_3.png)
 
 
 
-![png](output_7_164.png)
+![png](output_8_4.png)
 
 
 
-![png](output_7_165.png)
+![png](output_8_5.png)
 
 
 
-![png](output_7_166.png)
+![png](output_8_6.png)
 
 
-    IOPub data rate exceeded.
-    The notebook server will temporarily stop sending output
-    to the client in order to avoid crashing it.
-    To change this limit, set the config variable
-    `--NotebookApp.iopub_data_rate_limit`.
-    
+
+![png](output_8_7.png)
+
 
     Wrote model to .\Models\weights_51.hdf
     Epoch 52/52
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=52, use_multiprocessing=False, callbacks=None, initial_epoch=51, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=52, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=51, verbose=1)`
     
 
-    200/200 [==============================] - 764s - loss: 0.0014 - mean_squared_error: 0.0014 - val_loss: 0.0012 - val_mean_squared_error: 0.0012
+    200/200 [==============================] - 1347s - loss: 0.0060 - mean_squared_error: 0.0060 - val_loss: 0.0072 - val_mean_squared_error: 0.0072
     Wrote model to .\Models\weights_52.hdf
     Epoch 53/53
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=53, use_multiprocessing=False, callbacks=None, initial_epoch=52, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=53, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=52, verbose=1)`
     
 
-    200/200 [==============================] - 769s - loss: 0.0017 - mean_squared_error: 0.0017 - val_loss: 0.0025 - val_mean_squared_error: 0.0025
+    200/200 [==============================] - 1346s - loss: 0.0062 - mean_squared_error: 0.0062 - val_loss: 0.0058 - val_mean_squared_error: 0.0058
     Wrote model to .\Models\weights_53.hdf
     Epoch 54/54
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=54, use_multiprocessing=False, callbacks=None, initial_epoch=53, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=54, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=53, verbose=1)`
     
 
-    200/200 [==============================] - 771s - loss: 0.0015 - mean_squared_error: 0.0015 - val_loss: 9.2592e-04 - val_mean_squared_error: 9.2592e-04
+    200/200 [==============================] - 1357s - loss: 0.0058 - mean_squared_error: 0.0058 - val_loss: 0.0060 - val_mean_squared_error: 0.0060
     Wrote model to .\Models\weights_54.hdf
     Epoch 55/55
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=55, use_multiprocessing=False, callbacks=None, initial_epoch=54, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=55, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=54, verbose=1)`
     
 
-    200/200 [==============================] - 771s - loss: 0.0013 - mean_squared_error: 0.0013 - val_loss: 7.6220e-04 - val_mean_squared_error: 7.6220e-04
+    200/200 [==============================] - 1354s - loss: 0.0062 - mean_squared_error: 0.0062 - val_loss: 0.0056 - val_mean_squared_error: 0.0056
     Wrote model to .\Models\weights_55.hdf
     Epoch 56/56
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=56, use_multiprocessing=False, callbacks=None, initial_epoch=55, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=56, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=55, verbose=1)`
     
 
-    200/200 [==============================] - 770s - loss: 0.0014 - mean_squared_error: 0.0014 - val_loss: 6.8736e-04 - val_mean_squared_error: 6.8736e-04
+    200/200 [==============================] - 1354s - loss: 0.0059 - mean_squared_error: 0.0059 - val_loss: 0.0053 - val_mean_squared_error: 0.0053
     
 
 
-![png](output_7_179.png)
+![png](output_8_19.png)
 
 
 
-![png](output_7_180.png)
+![png](output_8_20.png)
 
 
 
-![png](output_7_181.png)
+![png](output_8_21.png)
 
 
 
-![png](output_7_182.png)
+![png](output_8_22.png)
 
 
 
-![png](output_7_183.png)
+![png](output_8_23.png)
 
 
     Wrote model to .\Models\weights_56.hdf
     Epoch 57/57
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=57, use_multiprocessing=False, callbacks=None, initial_epoch=56, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=57, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=56, verbose=1)`
     
 
-    200/200 [==============================] - 770s - loss: 0.0014 - mean_squared_error: 0.0014 - val_loss: 7.5827e-04 - val_mean_squared_error: 7.5827e-04
+    200/200 [==============================] - 1353s - loss: 0.0061 - mean_squared_error: 0.0061 - val_loss: 0.0059 - val_mean_squared_error: 0.0059
     Wrote model to .\Models\weights_57.hdf
     Epoch 58/58
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=58, use_multiprocessing=False, callbacks=None, initial_epoch=57, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=58, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=57, verbose=1)`
     
 
-    200/200 [==============================] - 770s - loss: 0.0016 - mean_squared_error: 0.0016 - val_loss: 0.0023 - val_mean_squared_error: 0.0023
+    200/200 [==============================] - 1353s - loss: 0.0061 - mean_squared_error: 0.0061 - val_loss: 0.0076 - val_mean_squared_error: 0.0076
     Wrote model to .\Models\weights_58.hdf
     Epoch 59/59
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=59, use_multiprocessing=False, callbacks=None, initial_epoch=58, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=59, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=58, verbose=1)`
     
 
-    200/200 [==============================] - 770s - loss: 0.0014 - mean_squared_error: 0.0014 - val_loss: 0.0011 - val_mean_squared_error: 0.0011
+    200/200 [==============================] - 1353s - loss: 0.0062 - mean_squared_error: 0.0062 - val_loss: 0.0053 - val_mean_squared_error: 0.0053
     Wrote model to .\Models\weights_59.hdf
     Epoch 60/60
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=60, use_multiprocessing=False, callbacks=None, initial_epoch=59, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=60, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=59, verbose=1)`
     
 
-    200/200 [==============================] - 772s - loss: 0.0015 - mean_squared_error: 0.0015 - val_loss: 8.5282e-04 - val_mean_squared_error: 8.5282e-04
+    200/200 [==============================] - 1352s - loss: 0.0061 - mean_squared_error: 0.0061 - val_loss: 0.0090 - val_mean_squared_error: 0.0090
     Wrote model to .\Models\weights_60.hdf
     Epoch 61/61
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=61, use_multiprocessing=False, callbacks=None, initial_epoch=60, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=61, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=60, verbose=1)`
     
 
-    200/200 [==============================] - 771s - loss: 0.0013 - mean_squared_error: 0.0013 - val_loss: 7.6419e-04 - val_mean_squared_error: 7.6419e-04
+    200/200 [==============================] - 1352s - loss: 0.0061 - mean_squared_error: 0.0061 - val_loss: 0.0052 - val_mean_squared_error: 0.0052
     
 
 
-![png](output_7_195.png)
+![png](output_8_35.png)
 
 
 
-![png](output_7_196.png)
+![png](output_8_36.png)
 
 
 
-![png](output_7_197.png)
+![png](output_8_37.png)
 
 
 
-![png](output_7_198.png)
+![png](output_8_38.png)
 
 
 
-![png](output_7_199.png)
+![png](output_8_39.png)
 
 
     Wrote model to .\Models\weights_61.hdf
     Epoch 62/62
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=62, use_multiprocessing=False, callbacks=None, initial_epoch=61, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=62, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=61, verbose=1)`
     
 
-    200/200 [==============================] - 769s - loss: 0.0012 - mean_squared_error: 0.0012 - val_loss: 8.7308e-04 - val_mean_squared_error: 8.7308e-04
-    Wrote model to .\Models\weights_62.hdf
-    Epoch 63/63
+    182/200 [==========================>...] - ETA: 110s - loss: 0.0064 - mean_squared_error: 0.0064
+
+
+    ---------------------------------------------------------------------------
+
+    KeyboardInterrupt                         Traceback (most recent call last)
+
+    C:\Anaconda\envs\py35\lib\site-packages\keras\engine\training.py in fit_generator(self, generator, steps_per_epoch, epochs, verbose, callbacks, validation_data, validation_steps, class_weight, max_queue_size, workers, use_multiprocessing, shuffle, initial_epoch)
+       2041                                                sample_weight=sample_weight,
+    -> 2042                                                class_weight=class_weight)
+       2043 
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=63, use_multiprocessing=False, callbacks=None, initial_epoch=62, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\keras\engine\training.py in train_on_batch(self, x, y, sample_weight, class_weight)
+       1761         self._make_train_function()
+    -> 1762         outputs = self.train_function(ins)
+       1763         if len(outputs) == 1:
     
 
-    200/200 [==============================] - 776s - loss: 0.0012 - mean_squared_error: 0.0012 - val_loss: 0.0022 - val_mean_squared_error: 0.0022
-    Wrote model to .\Models\weights_63.hdf
-    Epoch 64/64
+    C:\Anaconda\envs\py35\lib\site-packages\keras\backend\tensorflow_backend.py in __call__(self, inputs)
+       2272                               feed_dict=feed_dict,
+    -> 2273                               **self.session_kwargs)
+       2274         return updated[:len(self.outputs)]
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=64, use_multiprocessing=False, callbacks=None, initial_epoch=63, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\tensorflow\python\client\session.py in run(self, fetches, feed_dict, options, run_metadata)
+        894       result = self._run(None, fetches, feed_dict, options_ptr,
+    --> 895                          run_metadata_ptr)
+        896       if run_metadata:
     
 
-    200/200 [==============================] - 770s - loss: 0.0012 - mean_squared_error: 0.0012 - val_loss: 0.0022 - val_mean_squared_error: 0.0022
-    Wrote model to .\Models\weights_64.hdf
-    Epoch 65/65
+    C:\Anaconda\envs\py35\lib\site-packages\tensorflow\python\client\session.py in _run(self, handle, fetches, feed_dict, options, run_metadata)
+       1123       results = self._do_run(handle, final_targets, final_fetches,
+    -> 1124                              feed_dict_tensor, options, run_metadata)
+       1125     else:
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=65, use_multiprocessing=False, callbacks=None, initial_epoch=64, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\tensorflow\python\client\session.py in _do_run(self, handle, target_list, fetch_list, feed_dict, options, run_metadata)
+       1320       return self._do_call(_run_fn, self._session, feeds, fetches, targets,
+    -> 1321                            options, run_metadata)
+       1322     else:
     
 
-    200/200 [==============================] - 765s - loss: 0.0013 - mean_squared_error: 0.0013 - val_loss: 7.0578e-04 - val_mean_squared_error: 7.0578e-04
-    Wrote model to .\Models\weights_65.hdf
+    C:\Anaconda\envs\py35\lib\site-packages\tensorflow\python\client\session.py in _do_call(self, fn, *args)
+       1326     try:
+    -> 1327       return fn(*args)
+       1328     except errors.OpError as e:
+    
+
+    C:\Anaconda\envs\py35\lib\site-packages\tensorflow\python\client\session.py in _run_fn(session, feed_dict, fetch_list, target_list, options, run_metadata)
+       1305                                    feed_dict, fetch_list, target_list,
+    -> 1306                                    status, run_metadata)
+       1307 
+    
+
+    KeyboardInterrupt: 
+
+    
+    During handling of the above exception, another exception occurred:
+    
+
+    KeyboardInterrupt                         Traceback (most recent call last)
+
+    <ipython-input-9-34fe4df63390> in <module>()
+         30         validation_steps = batches_validation_per_epoch,
+         31         pickle_safe=False,
+    ---> 32         initial_epoch=epoch)
+         33 
+         34     epoch += 1
+    
+
+    C:\Anaconda\envs\py35\lib\site-packages\keras\legacy\interfaces.py in wrapper(*args, **kwargs)
+         85                 warnings.warn('Update your `' + object_name +
+         86                               '` call to the Keras 2 API: ' + signature, stacklevel=2)
+    ---> 87             return func(*args, **kwargs)
+         88         wrapper._original_function = func
+         89         return wrapper
+    
+
+    C:\Anaconda\envs\py35\lib\site-packages\keras\engine\training.py in fit_generator(self, generator, steps_per_epoch, epochs, verbose, callbacks, validation_data, validation_steps, class_weight, max_queue_size, workers, use_multiprocessing, shuffle, initial_epoch)
+       2087         finally:
+       2088             if enqueuer is not None:
+    -> 2089                 enqueuer.stop()
+       2090 
+       2091         callbacks.on_train_end()
+    
+
+    C:\Anaconda\envs\py35\lib\site-packages\keras\utils\data_utils.py in stop(self, timeout)
+        618                     thread.terminate()
+        619                 else:
+    --> 620                     thread.join(timeout)
+        621 
+        622         if self._use_multiprocessing:
+    
+
+    C:\Anaconda\envs\py35\lib\threading.py in join(self, timeout)
+       1052 
+       1053         if timeout is None:
+    -> 1054             self._wait_for_tstate_lock()
+       1055         else:
+       1056             # the behavior of a negative timeout isn't documented, but
+    
+
+    C:\Anaconda\envs\py35\lib\threading.py in _wait_for_tstate_lock(self, block, timeout)
+       1068         if lock is None:  # already determined that the C code is done
+       1069             assert self._is_stopped
+    -> 1070         elif lock.acquire(block, timeout):
+       1071             lock.release()
+       1072             self._stop()
+    
+
+    KeyboardInterrupt: 
+
+
+
+```python
+# For a multi-class classification problem
+frame_prediction_model.compile(optimizer=keras.optimizers.RMSprop(lr=0.0000005),
+#frame_prediction_model.compile(optimizer=keras.optimizers.RMSprop(lr=0.0001),
+#model.compile(optimizer=keras.optimizers.adam(),
+              loss='mean_squared_error',
+              metrics=['mean_squared_error'])
+
+# Was ran on the above simple model, not pre-trained Inceptionv3 run.
+epoch = 65
+#batches_validation_per_epoch = 50
+#batches_training_per_epoch = 400
+batch_size = 20
+batches_training_per_epoch = 200
+batches_validation_per_epoch = 10
+print("Batch size %i: %i training batches, %i validation batches" % (batch_size, batches_training_per_epoch, batches_validation_per_epoch) )
+WEIGHTS_FNAME = '.\\Models\\weights_%i.hdf'
+MODELS_FNAME = '.\\Models\\models_%i.h5'
+
+for i in range(200):
+    frame_prediction_model.fit_generator(
+        TrainBatchGen(batch_size, training=training),
+        batches_training_per_epoch,
+        epochs=epoch+1,
+        verbose=1,
+        callbacks=None,
+        class_weight=None,
+        max_q_size=50,
+        workers=50,
+        validation_data=TrainBatchGen(batch_size, validation),
+        validation_steps = batches_validation_per_epoch,
+        pickle_safe=False,
+        initial_epoch=epoch)
+    
+    epoch += 1
+    
+    # Plot occasional validation data plot
+    if i % 5 == 0:
+        plot_validate(TrainBatchGen(batch_size, validation), frame_prediction_model, 50, "Epoch validation results %i" % epoch)
+    
+    # Save the model
+    frame_prediction_model.save_weights(WEIGHTS_FNAME % epoch)
+    frame_prediction_model.save(MODELS_FNAME % epoch)
+    print(("Wrote model to " + WEIGHTS_FNAME )  % epoch)
+
+
+```
+
+    Batch size 20: 200 training batches, 10 validation batches
+    
+
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=66, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=65, verbose=1)`
+    
+
     Epoch 66/66
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=66, use_multiprocessing=False, callbacks=None, initial_epoch=65, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 770s - loss: 0.0013 - mean_squared_error: 0.0013 - val_loss: 0.0021 - val_mean_squared_error: 0.0021
+    200/200 [==============================] - 1356s - loss: 0.0056 - mean_squared_error: 0.0056 - val_loss: 0.0075 - val_mean_squared_error: 0.0075
     
 
 
-![png](output_7_211.png)
+![png](output_9_3.png)
 
 
 
-![png](output_7_212.png)
+![png](output_9_4.png)
 
 
 
-![png](output_7_213.png)
+![png](output_9_5.png)
 
 
 
-![png](output_7_214.png)
+![png](output_9_6.png)
 
 
 
-![png](output_7_215.png)
+![png](output_9_7.png)
 
 
     Wrote model to .\Models\weights_66.hdf
     Epoch 67/67
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=67, use_multiprocessing=False, callbacks=None, initial_epoch=66, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=67, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=66, verbose=1)`
     
 
-    200/200 [==============================] - 765s - loss: 0.0013 - mean_squared_error: 0.0013 - val_loss: 8.6769e-04 - val_mean_squared_error: 8.6769e-04
+    200/200 [==============================] - 1352s - loss: 0.0056 - mean_squared_error: 0.0056 - val_loss: 0.0079 - val_mean_squared_error: 0.0079
     Wrote model to .\Models\weights_67.hdf
     Epoch 68/68
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=68, use_multiprocessing=False, callbacks=None, initial_epoch=67, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=68, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=67, verbose=1)`
     
 
-    200/200 [==============================] - 776s - loss: 0.0013 - mean_squared_error: 0.0013 - val_loss: 7.4252e-04 - val_mean_squared_error: 7.4252e-04
+    200/200 [==============================] - 1354s - loss: 0.0059 - mean_squared_error: 0.0059 - val_loss: 0.0065 - val_mean_squared_error: 0.0065
     Wrote model to .\Models\weights_68.hdf
     Epoch 69/69
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=69, use_multiprocessing=False, callbacks=None, initial_epoch=68, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=69, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=68, verbose=1)`
     
 
-    200/200 [==============================] - 772s - loss: 0.0013 - mean_squared_error: 0.0013 - val_loss: 0.0021 - val_mean_squared_error: 0.0021
+    200/200 [==============================] - 1354s - loss: 0.0062 - mean_squared_error: 0.0062 - val_loss: 0.0066 - val_mean_squared_error: 0.0066
     Wrote model to .\Models\weights_69.hdf
     Epoch 70/70
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=70, use_multiprocessing=False, callbacks=None, initial_epoch=69, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:32: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, class_weight=None, max_queue_size=50, use_multiprocessing=False, epochs=70, validation_steps=10, validation_data=<__main__...., workers=50, callbacks=None, initial_epoch=69, verbose=1)`
     
 
-    200/200 [==============================] - 764s - loss: 0.0013 - mean_squared_error: 0.0013 - val_loss: 7.8611e-04 - val_mean_squared_error: 7.8611e-04
-    Wrote model to .\Models\weights_70.hdf
-    Epoch 71/71
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=71, use_multiprocessing=False, callbacks=None, initial_epoch=70, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 768s - loss: 0.0014 - mean_squared_error: 0.0014 - val_loss: 0.0011 - val_mean_squared_error: 0.0011
-    
-
-
-![png](output_7_227.png)
-
-
-
-![png](output_7_228.png)
-
-
-
-![png](output_7_229.png)
-
-
-
-![png](output_7_230.png)
-
-
-
-![png](output_7_231.png)
-
-
-    Wrote model to .\Models\weights_71.hdf
-    Epoch 72/72
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=72, use_multiprocessing=False, callbacks=None, initial_epoch=71, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 770s - loss: 0.0012 - mean_squared_error: 0.0012 - val_loss: 7.2537e-04 - val_mean_squared_error: 7.2537e-04
-    Wrote model to .\Models\weights_72.hdf
-    Epoch 73/73
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=73, use_multiprocessing=False, callbacks=None, initial_epoch=72, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 772s - loss: 0.0013 - mean_squared_error: 0.0013 - val_loss: 7.1300e-04 - val_mean_squared_error: 7.1300e-04
-    Wrote model to .\Models\weights_73.hdf
-    Epoch 74/74
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=74, use_multiprocessing=False, callbacks=None, initial_epoch=73, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 775s - loss: 0.0014 - mean_squared_error: 0.0014 - val_loss: 0.0025 - val_mean_squared_error: 0.0025
-    Wrote model to .\Models\weights_74.hdf
-    Epoch 75/75
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=75, use_multiprocessing=False, callbacks=None, initial_epoch=74, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 771s - loss: 0.0013 - mean_squared_error: 0.0013 - val_loss: 7.8886e-04 - val_mean_squared_error: 7.8886e-04
-    Wrote model to .\Models\weights_75.hdf
-    Epoch 76/76
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=76, use_multiprocessing=False, callbacks=None, initial_epoch=75, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 765s - loss: 0.0012 - mean_squared_error: 0.0012 - val_loss: 7.1232e-04 - val_mean_squared_error: 7.1232e-04
-    
-
-
-![png](output_7_243.png)
-
-
-
-![png](output_7_244.png)
-
-
-
-![png](output_7_245.png)
-
-
-
-![png](output_7_246.png)
-
-
-
-![png](output_7_247.png)
-
-
-    Wrote model to .\Models\weights_76.hdf
-    Epoch 77/77
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=77, use_multiprocessing=False, callbacks=None, initial_epoch=76, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 764s - loss: 0.0011 - mean_squared_error: 0.0011 - val_loss: 7.3121e-04 - val_mean_squared_error: 7.3121e-04
-    Wrote model to .\Models\weights_77.hdf
-    Epoch 78/78
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=78, use_multiprocessing=False, callbacks=None, initial_epoch=77, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 772s - loss: 0.0012 - mean_squared_error: 0.0012 - val_loss: 6.4501e-04 - val_mean_squared_error: 6.4501e-04
-    Wrote model to .\Models\weights_78.hdf
-    Epoch 79/79
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=79, use_multiprocessing=False, callbacks=None, initial_epoch=78, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 768s - loss: 0.0011 - mean_squared_error: 0.0011 - val_loss: 0.0023 - val_mean_squared_error: 0.0023
-    Wrote model to .\Models\weights_79.hdf
-    Epoch 80/80
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=80, use_multiprocessing=False, callbacks=None, initial_epoch=79, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 764s - loss: 0.0012 - mean_squared_error: 0.0012 - val_loss: 5.1514e-04 - val_mean_squared_error: 5.1514e-04
-    Wrote model to .\Models\weights_80.hdf
-    Epoch 81/81
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=81, use_multiprocessing=False, callbacks=None, initial_epoch=80, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 768s - loss: 0.0011 - mean_squared_error: 0.0011 - val_loss: 0.0018 - val_mean_squared_error: 0.0018
-    
-
-
-![png](output_7_259.png)
-
-
-
-![png](output_7_260.png)
-
-
-
-![png](output_7_261.png)
-
-
-
-![png](output_7_262.png)
-
-
-
-![png](output_7_263.png)
-
-
-    Wrote model to .\Models\weights_81.hdf
-    Epoch 82/82
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=82, use_multiprocessing=False, callbacks=None, initial_epoch=81, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 773s - loss: 0.0013 - mean_squared_error: 0.0013 - val_loss: 6.3394e-04 - val_mean_squared_error: 6.3394e-04
-    Wrote model to .\Models\weights_82.hdf
-    Epoch 83/83
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=83, use_multiprocessing=False, callbacks=None, initial_epoch=82, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 770s - loss: 0.0012 - mean_squared_error: 0.0012 - val_loss: 6.5081e-04 - val_mean_squared_error: 6.5081e-04
-    Wrote model to .\Models\weights_83.hdf
-    Epoch 84/84
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=84, use_multiprocessing=False, callbacks=None, initial_epoch=83, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 771s - loss: 0.0012 - mean_squared_error: 0.0012 - val_loss: 9.9717e-04 - val_mean_squared_error: 9.9717e-04
-    Wrote model to .\Models\weights_84.hdf
-    Epoch 85/85
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=85, use_multiprocessing=False, callbacks=None, initial_epoch=84, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 762s - loss: 0.0013 - mean_squared_error: 0.0013 - val_loss: 5.3754e-04 - val_mean_squared_error: 5.3754e-04
-    Wrote model to .\Models\weights_85.hdf
-    Epoch 86/86
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=86, use_multiprocessing=False, callbacks=None, initial_epoch=85, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 767s - loss: 0.0012 - mean_squared_error: 0.0012 - val_loss: 7.3321e-04 - val_mean_squared_error: 7.3321e-04
-    
-
-
-![png](output_7_275.png)
-
-
-
-![png](output_7_276.png)
-
-
-
-![png](output_7_277.png)
-
-
-
-![png](output_7_278.png)
-
-
-
-![png](output_7_279.png)
-
-
-    Wrote model to .\Models\weights_86.hdf
-    Epoch 87/87
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=87, use_multiprocessing=False, callbacks=None, initial_epoch=86, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 768s - loss: 0.0012 - mean_squared_error: 0.0012 - val_loss: 5.7912e-04 - val_mean_squared_error: 5.7912e-04
-    Wrote model to .\Models\weights_87.hdf
-    Epoch 88/88
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=88, use_multiprocessing=False, callbacks=None, initial_epoch=87, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 765s - loss: 9.9381e-04 - mean_squared_error: 9.9381e-04 - val_loss: 6.4540e-04 - val_mean_squared_error: 6.4540e-04
-    Wrote model to .\Models\weights_88.hdf
-    Epoch 89/89
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=89, use_multiprocessing=False, callbacks=None, initial_epoch=88, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 766s - loss: 0.0014 - mean_squared_error: 0.0014 - val_loss: 0.0019 - val_mean_squared_error: 0.0019
-    Wrote model to .\Models\weights_89.hdf
-    Epoch 90/90
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=90, use_multiprocessing=False, callbacks=None, initial_epoch=89, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 775s - loss: 0.0011 - mean_squared_error: 0.0011 - val_loss: 9.1810e-04 - val_mean_squared_error: 9.1810e-04
-    Wrote model to .\Models\weights_90.hdf
-    Epoch 91/91
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=91, use_multiprocessing=False, callbacks=None, initial_epoch=90, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 766s - loss: 0.0012 - mean_squared_error: 0.0012 - val_loss: 5.9728e-04 - val_mean_squared_error: 5.9728e-04
-    
-
-
-![png](output_7_291.png)
-
-
-
-![png](output_7_292.png)
-
-
-
-![png](output_7_293.png)
-
-
-
-![png](output_7_294.png)
-
-
-
-![png](output_7_295.png)
-
-
-    Wrote model to .\Models\weights_91.hdf
-    Epoch 92/92
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=92, use_multiprocessing=False, callbacks=None, initial_epoch=91, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
-
-    200/200 [==============================] - 770s - loss: 0.0012 - mean_squared_error: 0.0012 - val_loss: 0.0018 - val_mean_squared_error: 0.0018
-    Wrote model to .\Models\weights_92.hdf
-    Epoch 93/93
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=93, use_multiprocessing=False, callbacks=None, initial_epoch=92, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
+     73/200 [=========>....................] - ETA: 781s - loss: 0.0056 - mean_squared_error: 0.0056
 
-    200/200 [==============================] - 770s - loss: 0.0011 - mean_squared_error: 0.0011 - val_loss: 0.0037 - val_mean_squared_error: 0.0037
-    Wrote model to .\Models\weights_93.hdf
-    Epoch 94/94
-    
-
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=94, use_multiprocessing=False, callbacks=None, initial_epoch=93, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
 
-    200/200 [==============================] - 769s - loss: 0.0010 - mean_squared_error: 0.0010 - val_loss: 0.0016 - val_mean_squared_error: 0.0016
-    Wrote model to .\Models\weights_94.hdf
-    Epoch 95/95
-    
+    ---------------------------------------------------------------------------
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=95, use_multiprocessing=False, callbacks=None, initial_epoch=94, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
+    KeyboardInterrupt                         Traceback (most recent call last)
 
-    200/200 [==============================] - 769s - loss: 0.0011 - mean_squared_error: 0.0011 - val_loss: 9.6522e-04 - val_mean_squared_error: 9.6522e-04
-    Wrote model to .\Models\weights_95.hdf
-    Epoch 96/96
+    <ipython-input-10-f6f675ea8ef6> in <module>()
+         30         validation_steps = batches_validation_per_epoch,
+         31         pickle_safe=False,
+    ---> 32         initial_epoch=epoch)
+         33 
+         34     epoch += 1
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=96, use_multiprocessing=False, callbacks=None, initial_epoch=95, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\keras\legacy\interfaces.py in wrapper(*args, **kwargs)
+         85                 warnings.warn('Update your `' + object_name +
+         86                               '` call to the Keras 2 API: ' + signature, stacklevel=2)
+    ---> 87             return func(*args, **kwargs)
+         88         wrapper._original_function = func
+         89         return wrapper
     
 
-    200/200 [==============================] - 767s - loss: 0.0012 - mean_squared_error: 0.0012 - val_loss: 6.2366e-04 - val_mean_squared_error: 6.2366e-04
+    C:\Anaconda\envs\py35\lib\site-packages\keras\engine\training.py in fit_generator(self, generator, steps_per_epoch, epochs, verbose, callbacks, validation_data, validation_steps, class_weight, max_queue_size, workers, use_multiprocessing, shuffle, initial_epoch)
+       2040                     outs = self.train_on_batch(x, y,
+       2041                                                sample_weight=sample_weight,
+    -> 2042                                                class_weight=class_weight)
+       2043 
+       2044                     if not isinstance(outs, list):
     
-
-
-![png](output_7_307.png)
-
-
 
-![png](output_7_308.png)
-
-
-
-![png](output_7_309.png)
-
-
-
-![png](output_7_310.png)
-
-
-
-![png](output_7_311.png)
-
-
-    Wrote model to .\Models\weights_96.hdf
-    Epoch 97/97
+    C:\Anaconda\envs\py35\lib\site-packages\keras\engine\training.py in train_on_batch(self, x, y, sample_weight, class_weight)
+       1760             ins = x + y + sample_weights
+       1761         self._make_train_function()
+    -> 1762         outputs = self.train_function(ins)
+       1763         if len(outputs) == 1:
+       1764             return outputs[0]
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=97, use_multiprocessing=False, callbacks=None, initial_epoch=96, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\keras\backend\tensorflow_backend.py in __call__(self, inputs)
+       2271         updated = session.run(self.outputs + [self.updates_op],
+       2272                               feed_dict=feed_dict,
+    -> 2273                               **self.session_kwargs)
+       2274         return updated[:len(self.outputs)]
+       2275 
     
 
-    200/200 [==============================] - 768s - loss: 0.0012 - mean_squared_error: 0.0012 - val_loss: 4.7916e-04 - val_mean_squared_error: 4.7916e-04
-    Wrote model to .\Models\weights_97.hdf
-    Epoch 98/98
+    C:\Anaconda\envs\py35\lib\site-packages\tensorflow\python\client\session.py in run(self, fetches, feed_dict, options, run_metadata)
+        893     try:
+        894       result = self._run(None, fetches, feed_dict, options_ptr,
+    --> 895                          run_metadata_ptr)
+        896       if run_metadata:
+        897         proto_data = tf_session.TF_GetBuffer(run_metadata_ptr)
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=98, use_multiprocessing=False, callbacks=None, initial_epoch=97, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\tensorflow\python\client\session.py in _run(self, handle, fetches, feed_dict, options, run_metadata)
+       1122     if final_fetches or final_targets or (handle and feed_dict_tensor):
+       1123       results = self._do_run(handle, final_targets, final_fetches,
+    -> 1124                              feed_dict_tensor, options, run_metadata)
+       1125     else:
+       1126       results = []
     
 
-    200/200 [==============================] - 768s - loss: 0.0011 - mean_squared_error: 0.0011 - val_loss: 4.7227e-04 - val_mean_squared_error: 4.7227e-04
-    Wrote model to .\Models\weights_98.hdf
-    Epoch 99/99
+    C:\Anaconda\envs\py35\lib\site-packages\tensorflow\python\client\session.py in _do_run(self, handle, target_list, fetch_list, feed_dict, options, run_metadata)
+       1319     if handle is None:
+       1320       return self._do_call(_run_fn, self._session, feeds, fetches, targets,
+    -> 1321                            options, run_metadata)
+       1322     else:
+       1323       return self._do_call(_prun_fn, self._session, handle, feeds, fetches)
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=99, use_multiprocessing=False, callbacks=None, initial_epoch=98, validation_data=<__main__...., validation_steps=10, verbose=1)`
+    C:\Anaconda\envs\py35\lib\site-packages\tensorflow\python\client\session.py in _do_call(self, fn, *args)
+       1325   def _do_call(self, fn, *args):
+       1326     try:
+    -> 1327       return fn(*args)
+       1328     except errors.OpError as e:
+       1329       message = compat.as_text(e.message)
     
 
-    200/200 [==============================] - 770s - loss: 0.0010 - mean_squared_error: 0.0010 - val_loss: 0.0014 - val_mean_squared_error: 0.0014
-    Wrote model to .\Models\weights_99.hdf
-    Epoch 100/100
+    C:\Anaconda\envs\py35\lib\site-packages\tensorflow\python\client\session.py in _run_fn(session, feed_dict, fetch_list, target_list, options, run_metadata)
+       1304           return tf_session.TF_Run(session, options,
+       1305                                    feed_dict, fetch_list, target_list,
+    -> 1306                                    status, run_metadata)
+       1307 
+       1308     def _prun_fn(session, handle, feed_dict, fetch_list):
     
 
-    C:\Anaconda\envs\py35\lib\site-packages\ipykernel\__main__.py:31: UserWarning: Update your `fit_generator` call to the Keras 2 API: `fit_generator(<__main__...., 200, max_queue_size=50, workers=50, class_weight=None, epochs=100, use_multiprocessing=False, callbacks=None, initial_epoch=99, validation_data=<__main__...., validation_steps=10, verbose=1)`
-    
+    KeyboardInterrupt: 
 
-    200/200 [==============================] - 768s - loss: 0.0012 - mean_squared_error: 0.0012 - val_loss: 9.5305e-04 - val_mean_squared_error: 9.5305e-04
-    Wrote model to .\Models\weights_100.hdf
-    
