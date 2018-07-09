@@ -459,6 +459,7 @@ class BasicWriter(Transform):
     def finalize_chunk(self):
         # Release the video writer
         self.video_writer.release()
+        self.video_writer = None
         
         # Write the json data
         if len(self.json_output_data) > 0:
@@ -681,6 +682,26 @@ class Resize(Transform):
         
         # Write the result
         data[self.output] = result
+
+        return data
+
+
+class ResizePoint(Transform):
+    def __init__(self, config):
+        self.input = config["input"]
+        self.output = config["output"]
+        self.source_frame_size = config["source_frame_size"]
+        self.size = config["size"]
+
+    def process(self, data):
+        if len(data[self.input]) == 2:
+            # Resize the point
+            result = [ round(data[self.input][0] * self.size[1] / data[self.source_frame_size].shape[1]),
+                        round(data[self.input][1] * self.size[0] / data[self.source_frame_size].shape[0]) ]
+
+            # Write the result
+            data[self.output] = result
+        
 
         return data
 
@@ -1326,6 +1347,23 @@ class PointSelection(Transform):
     def stop_all_on_return_null(self):
         return True
 
+class DrawCircle(Transform):
+    def __init__(self, config):
+        self.input_frame = config["input_frame"]
+        self.input_point = config["input_point"]
+        self.radius = config["radius"]
+        self.thickness = config["thickness"]
+        self.color = config["color"]
+
+    def process(self, data):
+        # Show the frame
+        if len(data[self.input_point]) == 2:
+            cv2.circle(data[self.input_frame], tuple(data[self.input_point]), self.radius, self.color, self.thickness)
+            pp.pprint(data["filename_noext"])
+        
+        # Continue
+        return data
+
 class DrawLines(Transform):
     def __init__(self, config):
         self.input_frame = config["input_frame"]
@@ -1635,6 +1673,7 @@ class MergeTwoFramesByPolygon(Transform):
         return data
 
 
+
 class ContoursToFrames(Transform):
     def __init__(self, config):
         self.input_contours = config["input_contours"]
@@ -1644,6 +1683,14 @@ class ContoursToFrames(Transform):
         self.output_num_frames = config["output_num_frames"]
         self.output_frame_width = config["output_frame_width"]
         self.output_frame_height = config["output_frame_height"]
+
+        # Used to map input points into the the new resulting frames
+        self.input_point = None
+        if "input_point" in config:
+            self.input_point = config["input_point"]
+        self.output_points = None
+        if "output_points" in config:
+            self.output_points = config["output_points"]
 
     def process(self, data):
         # Cuts out and resizes regions from a frame specified by an array of contours into an
@@ -1704,7 +1751,21 @@ class ContoursToFrames(Transform):
                 #pp.pprint(result.shape)
                 
                 data[self.output_frames[i]] = result
-                
+
+                if self.input_point is not None:
+                    if len(data[self.input_point]) == 2:
+                        # Transform the point
+                        d = np.array([[data[self.input_point]]],dtype=np.float32)
+                        point_after = cv2.perspectiveTransform(d, transform)
+                        point_after = [point_after[0,0,0], point_after[0,0,1]]
+
+                        point_resized =  [ int(round(point_after[0] * self.output_frame_width / data[self.input_frame].shape[0])),
+                                          int(round(point_after[1] * self.output_frame_height / data[self.input_frame].shape[1])) ]
+                        pp.pprint(point_resized)
+                        data[self.output_points[i]] = point_resized
+                    else:
+                        # Pass-through
+                        data[self.output_points[i]]  = data[self.input_point]
 
                 data[self.output_num_frames] += 1
         

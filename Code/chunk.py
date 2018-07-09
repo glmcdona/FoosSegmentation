@@ -113,6 +113,7 @@ class ValueLoader_Json():
         if os.path.isfile(json_file):
             data = codecs.open(json_file, 'r', encoding='utf-8').read()
             self.data = json.loads(data)
+            pp.pprint(len(self.data["ball"]))
         else:
             self.data = {}
 

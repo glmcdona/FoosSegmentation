@@ -36,6 +36,8 @@ class Processor():
                         self.transforms.append( transforms.OneHot(transform) )
                     elif transform["name"] == "resize":
                         self.transforms.append( transforms.Resize(transform) )
+                    elif transform["name"] == "resize_point":
+                        self.transforms.append( transforms.ResizePoint(transform) )
                     elif transform["name"] == "resize_to_other":
                         self.transforms.append( transforms.ResizeToOther(transform) )
                     elif transform["name"] == "add_random_number":
@@ -88,6 +90,8 @@ class Processor():
                         self.transforms.append( transforms.DrawPolygon(transform) )
                     elif transform["name"] == "draw_contours":
                         self.transforms.append( transforms.DrawContours(transform) )
+                    elif transform["name"] == "draw_circle":
+                        self.transforms.append( transforms.DrawCircle(transform) )
                     elif transform["name"] == "zeros_like":
                         self.transforms.append( transforms.ZerosLike(transform) )
                     elif transform["name"] == "concat_frames":
