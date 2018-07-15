@@ -4,9 +4,8 @@
         {
             "name":"random_video_loader",
             "endswith":".avi",
-            "folder":".\\..\\..\\Data\\Processed\\BallTracking\\",
+            "folder":".\\..\\..\\Data\\Processed\\BallTracking\\Training\\",
             "output":"frame",
-            "take_first_x_percent":80,
             "value_loader":
             {
                 "json":
@@ -35,6 +34,13 @@
             "invert_channels":false,
             "vertical_flip":false,
             "horizontal_flip":true
+        },
+        {
+            "name":"require",
+            "input":"values",
+            "input_index":8,
+            "condition":"equals",
+            "value":[0]
         },
         {
             "name":"normalize_channels",

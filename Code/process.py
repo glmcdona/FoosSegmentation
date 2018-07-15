@@ -92,6 +92,8 @@ class Processor():
                         self.transforms.append( transforms.DrawContours(transform) )
                     elif transform["name"] == "draw_circle":
                         self.transforms.append( transforms.DrawCircle(transform) )
+                    elif transform["name"] == "zeros":
+                        self.transforms.append( transforms.Zeros(transform) )
                     elif transform["name"] == "zeros_like":
                         self.transforms.append( transforms.ZerosLike(transform) )
                     elif transform["name"] == "concat_frames":

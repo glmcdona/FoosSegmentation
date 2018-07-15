@@ -1,0 +1,27 @@
+{
+    "transforms":
+    [
+        {
+            "name":"random_video_loader",
+            "endswith":".avi",
+            "folder":".\\..\\..\\Data\\Processed\\BallTracking\\",
+            "output":"frame",
+            "take_first_x_percent":80,
+            "value_loader":
+            {
+                "json":
+                {
+                    "values_to_load":["values"]
+                }
+            },
+            "repeats":[]
+        },
+        {
+            "name":"normalize_channels",
+            "input":"frame",
+            "output":"frame",
+            "max":1.0,
+            "min":0.0
+        }
+    ]
+}

@@ -3,7 +3,7 @@
     [
         {
             "name":"single_video_loader",
-            "video_file":".\\..\\..\\Data\\Raw\\RawMatches\\2017 Tornado World Championships 1.mp4",
+            "video_file":".\\..\\..\\Data\\Raw\\RawMatches\\2018 Bart O'Hearn Celebration 1.mp4",
             "output":"frame"
         },
         {
@@ -77,6 +77,11 @@
             "contour_min_area_pixels":10
         },
         {
+            "name":"zeros",
+            "size":[256,256,3],
+            "output":"frame_table"
+        },
+        {
             "name":"contours_to_frames",
             "input_frame":"frame",
             "input_contours":"contours_table",
@@ -99,7 +104,7 @@
             "input_contours":"contours_rods",
             "fill":false,
             "width":1,
-            "color":[0,255,0]
+            "color":[255,0,0]
         },
         {
             "name":"draw_contours",
@@ -107,7 +112,7 @@
             "input_contours":"contours_scores",
             "fill":false,
             "width":1,
-            "color":[255,0,0]
+            "color":[0,255,0]
         },
         {
             "name":"concat_frames",

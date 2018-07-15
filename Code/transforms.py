@@ -548,6 +548,15 @@ class ZerosLike(Transform):
         data[self.output] = np.zeros_like(data[self.reference])
         return data
 
+class Zeros(Transform):
+    def __init__(self, config):
+        self.size = config["size"]
+        self.output = config["output"]
+    
+    def process(self, data):
+        data[self.output] = np.zeros(tuple(self.size))
+        return data
+
 class ConcatFrames(Transform):
     def __init__(self, config):
         self.inputs = config["inputs"]
@@ -1359,7 +1368,6 @@ class DrawCircle(Transform):
         # Show the frame
         if len(data[self.input_point]) == 2:
             cv2.circle(data[self.input_frame], tuple(data[self.input_point]), self.radius, self.color, self.thickness)
-            pp.pprint(data["filename_noext"])
         
         # Continue
         return data
@@ -1759,9 +1767,8 @@ class ContoursToFrames(Transform):
                         point_after = cv2.perspectiveTransform(d, transform)
                         point_after = [point_after[0,0,0], point_after[0,0,1]]
 
-                        point_resized =  [ int(round(point_after[0] * self.output_frame_width / data[self.input_frame].shape[0])),
-                                          int(round(point_after[1] * self.output_frame_height / data[self.input_frame].shape[1])) ]
-                        pp.pprint(point_resized)
+                        point_resized =  [ int(round(point_after[0] * self.output_frame_width / int(width))),
+                                          int(round(point_after[1] * self.output_frame_height / int(height))) ]
                         data[self.output_points[i]] = point_resized
                     else:
                         # Pass-through
