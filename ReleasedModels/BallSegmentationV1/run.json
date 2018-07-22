@@ -1,0 +1,153 @@
+{
+    "transforms":
+    [
+        { "_comment_":"-------- Load input video  ---------" },
+        {
+            "name":"single_video_loader",
+            "video_file":".\\..\\..\\Data\\Raw\\RawMatches\\2018 Bart O'Hearn Celebration 1.mp4",
+            "output":"frame",
+            "start_frame":1100
+        },
+        {
+            "name":"require",
+            "input":"frame"
+        },
+
+        { "_comment_":"-------- Run the table segmentation model ---------" },
+        {
+            "name":"resize",
+            "input":"frame",
+            "output":"frame",
+            "size":[256,512],
+            "resize_mode":"stretch"  
+        },
+        {
+            "name":"normalize_channels",
+            "input":"frame",
+            "output":"frame",
+            "max":1.0,
+            "min":0.0
+        },
+        {
+            "name":"run_model",
+            "input":"frame",
+            "model_file":"table_model.h5",
+            "output":"segmentation"
+        },
+        {
+            "name":"channel_max",
+            "input":"segmentation",
+            "output":"segmentation",
+            "max":1.0,
+            "min":0.0
+        },
+
+        { "_comment_":"-------- Extract the table ---------" },
+        {
+            "name":"contours_find",
+            "input":"segmentation",
+            "output_frame":"frame_with_contours",
+            "output_contours":"contours_table",
+            "threshold":0.5,
+            "channel":0,
+            "largest":1,
+            "convert_to_convex_hull":false,
+            "convert_to_bounding_rectangle":false,
+            "convert_to_rotated_bounding_rectangle":false,
+            "contour_min_area_pixels":10000
+        },
+        {
+            "name":"contours_to_frames",
+            "input_frame":"frame",
+            "input_contours":"contours_table",
+            "output_frames":["frame_table"],
+            "output_num_frames":"frame_table_loaded",
+            "output_frame_width":256,
+            "output_frame_height":256
+        },
+        {
+            "name":"require",
+            "input":"frame_table"
+        },
+
+        { "_comment_":"-------- Run the ball segmentation model ---------" },
+        {
+            "name":"normalize_channels",
+            "input":"frame_table",
+            "output":"frame_table",
+            "max":1.0,
+            "min":0.0
+        },
+        {
+            "name":"run_model",
+            "input":"frame_table",
+            "model_file":"ball_model.h5",
+            "output":"ball_segmentation"
+        },
+        {
+            "name":"channel_max",
+            "input":"ball_segmentation",
+            "output":"ball_segmentation",
+            "max":1.0,
+            "min":0.0
+        },
+        {
+            "name":"concat_frames",
+            "inputs":["ball_segmentation","ball_segmentation","ball_segmentation"],
+            "output":"ball_segmentation",
+            "axis":2
+        },
+
+        { "_comment_":"-------- Extract the ball position ---------" },
+        {
+            "name":"contours_find",
+            "input":"ball_segmentation",
+            "output_frame":"frame_with_contours",
+            "output_contours":"contours_ball",
+            "threshold":0.5,
+            "channel":0,
+            "largest":1,
+            "convert_to_convex_hull":false,
+            "convert_to_bounding_rectangle":false,
+            "convert_to_rotated_bounding_rectangle":false,
+            "contour_min_area_pixels":7
+        },
+        {
+            "name":"draw_contours",
+            "input_frame":"frame_table",
+            "input_contours":"contours_ball",
+            "fill":false,
+            "width":1,
+            "color":[255,0,0]
+        },
+
+        { "_comment_":"-------- Show the result ---------" },
+        {
+            "name":"concat_frames",
+            "inputs":["frame","frame_table","ball_segmentation"],
+            "output":"concat"
+        },
+        {
+            "name":"show_frame",
+            "input":"concat",
+            "display":"Ball extraction"
+        },
+
+        { "_comment_":"-------- Write the result to a video ---------" },
+        {
+            "name":"to_int_frame",
+            "input":"concat",
+            "output":"concat"
+        },
+        {
+            "name":"basic_writer",
+            "frame_to_output":"concat",
+            "values_to_output":[],
+            "folder":".",
+            "filename_prefix":"example_output",
+            "frames_per_chunk":1500
+        }
+
+    ]
+}
+
