@@ -3,12 +3,14 @@
 # !pip install imageio
 # !pip install matplotlib
 
+import tensorflow as tf
+import keras
 import transforms
 import pprint
 pp = pprint.PrettyPrinter(depth=6)
 import sys
 import json
-import keras
+
 
 # Settings
 #data_path  = ".\\..\\Recorder\\FeatureSetBuilder\\Experiments\\experiment4.config"

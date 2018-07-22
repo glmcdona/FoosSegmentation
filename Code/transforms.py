@@ -1118,6 +1118,8 @@ class SingleVideoLoader(Transform):
             self.video = cv2.VideoCapture(config["webcam_number"])
         if "video_file" in config:
             self.video = cv2.VideoCapture(config["video_file"])
+        if "start_frame" in config:
+            self.video.set(1,config["start_frame"])
         
         if "webcam_number" in config:
             self.num_frames = 1000000000000 # infinite
@@ -1423,18 +1425,28 @@ class DrawContours(Transform):
         return data
 
 class RunModel(Transform):
+    _init_tensorflow = False
+
+    def init_tensorflow(self):
+        # Only run this once per session
+        if not type(self)._init_tensorflow:
+            ###################################
+            # TensorFlow wizardry
+            tf_config = tf.ConfigProto()
+            tf_config.gpu_options.allow_growth = True
+            tf_config.gpu_options.per_process_gpu_memory_fraction = 0.3
+            k.tensorflow_backend.set_session(tf.Session(config=tf_config))
+            ###################################
+
+        type(self)._init_tensorflow = True
+
     def __init__(self, config):
-        ###################################
-        # TensorFlow wizardry
-        tf_config = tf.ConfigProto()
-        tf_config.gpu_options.allow_growth = True
-        tf_config.gpu_options.per_process_gpu_memory_fraction = 0.3
-        k.tensorflow_backend.set_session(tf.Session(config=tf_config))
-        ###################################
+        self.init_tensorflow()
         self.input = config["input"]
         self.output = config["output"]
         self.model = keras.models.load_model(config["model_file"], compile=False)
         self.model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+        
         
 
     def process(self, data):
