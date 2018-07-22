@@ -27,7 +27,7 @@
         {
             "name":"run_model",
             "input":"frame_small",
-            "model_file":"models_207.model",
+            "model_file":"models_11.model",
             "output":"rod_onehot"
         },
         {

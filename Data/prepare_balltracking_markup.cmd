@@ -1,1 +1,0 @@
-python ..\Code\process.py process segmentation_balltracking_markup.json

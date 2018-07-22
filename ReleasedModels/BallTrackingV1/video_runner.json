@@ -3,7 +3,7 @@
     [
         {
             "name":"single_video_loader",
-            "video_file":"e:\\Foosball Videos\\TKO\\2018 TKO 2.mp4",
+            "video_file":"e:\\Foosball Videos\\TKO\\2018 TKO 11.mp4",
             "output":"frame"
         },
         {
@@ -27,7 +27,7 @@
         {
             "name":"run_model",
             "input":"frame_small_normalized",
-            "model_file":"models_207.model",
+            "model_file":"models_3.model",
             "output":"rod_onehot"
         },
         {
@@ -35,7 +35,21 @@
             "input":"rod_onehot",
             "output":"rod",
             "output_prob":"probability",
+            "ignores":[8],
             "map":["Close Goalie","Close Defense","Close Offense","Close 5-Bar","Far 5-Bar","Far Offense","Far Defense","Far Goalie","Out of Play"]
+        },
+        {
+            "name":"run_model",
+            "input":"frame_small_normalized",
+            "model_file":"scoremodel_100.model",
+            "output":"score_onehot"
+        },
+        {
+            "name":"onehot_to_name",
+            "input":"score_onehot",
+            "output":"score",
+            "output_prob":"score_probability",
+            "map":["0","1","2","3","4","5"]
         },
         {
             "name":"frame_write_text",
@@ -48,6 +62,18 @@
             "input_output":"frame",
             "line":1,
             "text_from_value":"probability"
+        },
+        {
+            "name":"frame_write_text",
+            "input_output":"frame",
+            "line":2,
+            "text_from_value":"score"
+        },
+        {
+            "name":"frame_write_text",
+            "input_output":"frame",
+            "line":3,
+            "text_from_value":"score_probability"
         },
         {
             "name":"frame_write_text",
