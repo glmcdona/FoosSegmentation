@@ -1,0 +1,64 @@
+{
+    "transforms":
+    [
+        { "_comment_":"-------- Load random frames ---------" },
+        {
+            "name":"random_video_loader",
+            "endswith":"images.mp4",
+            "folder":".\\..\\..\\Data\\Processed\\BallSegmentation\\",
+            "output":"frame",
+            "exclusions":[],
+            "random":true,
+            "value_loader":
+            {
+            }
+        },
+        {
+            "name":"require",
+            "input":"frame"
+        },
+
+        { "_comment_":"-------- Resize the image to the table size ---------" },
+        {
+            "name":"resize",
+            "input":"frame",
+            "output":"frame",
+            "size":[256,256],
+            "resize_mode":"stretch"  
+        },
+        {
+            "name":"normalize_channels",
+            "input":"frame",
+            "output":"frame",
+            "max":1.0,
+            "min":0.0
+        },
+
+        { "_comment_":"-------- Create the segmentation result ---------" },
+        {
+            "name":"zeros_like",
+            "reference":"frame",
+            "output":"segmentation"
+        },
+
+        {   "_comment_": "-------- Write the result as frame pairs --------"},
+        {
+            "name":"to_int_frame",
+            "input":"frame",
+            "output":"frame"
+        },
+        {
+            "name":"to_int_frame",
+            "input":"segmentation",
+            "output":"segmentation"
+        },
+        {
+            "name":"basic_writer",
+            "frames_to_output":["frame","segmentation"],
+            "values_to_output":[],
+            "folder":".",
+            "filename_prefix":"random_images",
+            "frames_per_chunk":10000
+        }
+    ]
+}

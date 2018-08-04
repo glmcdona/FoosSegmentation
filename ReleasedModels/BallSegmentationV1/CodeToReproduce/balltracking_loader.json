@@ -1,0 +1,59 @@
+{
+    "transforms":
+    [
+        { "_comment_":"-------- Load random frames ---------" },
+        {
+            "name":"random_video_loader",
+            "endswith":".avi",
+            "folder":".",
+            "outputs":["frame","segmentation"],
+            "exclusions":[],
+            "random":true,
+            "frame_step":2,
+            "value_loader":
+            {
+            },
+            "repeats":
+            [
+                {
+                    "match_type":"partial_match_filename",
+                    "value_match":"balltracking",
+                    "repeat_times":10
+                }
+            ]
+        },
+        {
+            "name":"require",
+            "input":"frame"
+        },
+        {
+            "name":"require",
+            "input":"segmentation"
+        },
+
+        {   "_comment_": "-------- Randomize the frame and segmentation map the exact same way --------"},
+        {
+            "name":"add_random_number",
+            "output":"seed"
+        },
+
+
+        {   "_comment_": "-------- Normalize both images on range 0.0 to 1.0 per channel --------"},
+        {
+            "name":"normalize_channels",
+            "input":"frame",
+            "output":"frame",
+            "max":1.0,
+            "min":0.0
+        },
+        {
+            "name":"normalize_channels",
+            "input":"segmentation",
+            "output":"segmentation",
+            "max":1.0,
+            "min":0.0
+        },
+
+        {   "_comment_": "-------- 'frame' has input, 'segmentation' has output --------"}
+    ]
+}

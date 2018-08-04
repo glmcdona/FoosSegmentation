@@ -18,7 +18,7 @@
                 {
                     "match_type":"partial_match_filename",
                     "value_match":"balltracking",
-                    "repeat_times":20
+                    "repeat_times":10
                 }
             ]
         },
